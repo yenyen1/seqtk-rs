@@ -1,0 +1,11 @@
+[package]
+name = "seqtk-rs"
+version = "0.1.0"
+edition = "2021"
+authors = ["Yen Yen Wang <wangyenyen.st00g@g2.nctu.edu.tw>"]
+description = "Pure rust version of seqtk"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/yenyen1/seqtk-rs"
+repository = "https://github.com/yenyen1/seqtk-rs"
+
+[dependencies]
