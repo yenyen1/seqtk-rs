@@ -9,3 +9,10 @@ homepage = "https://github.com/yenyen1/seqtk-rs"
 repository = "https://github.com/yenyen1/seqtk-rs"
 
 [dependencies]
+clap = { version = "4.5.19", features = ["derive"] }
+
+[[bin]]
+name = "seqtk_rs"
+path = "src/bin/seqtk_rs_cli.rs"
+test = false
+bench = false
