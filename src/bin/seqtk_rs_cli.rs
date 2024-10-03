@@ -1,4 +1,5 @@
 use clap::{Args, Parser, Subcommand};
+use seqtk_rs::abc;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -16,7 +17,12 @@ enum Commands {
 
 #[derive(Args)]
 struct FqchkArgs {
-    name: Option<String>,
+    /// input fastq path
+    in_fq: String,
+
+    #[arg(short, long)]
+    /// quality value
+    quality_value: Option<u32>,
 }
 
 fn main() {
@@ -25,8 +31,9 @@ fn main() {
     // You can check for the existence of subcommands, and if found use their
     // matches just as you would the top level cmd
     match &cli.command {
-        Commands::Fqchk(name) => {
-            println!("'myapp add' was used, name is: {:?}", name.name);
+        Commands::Fqchk(fqchk) => {
+            println!("'myapp add' was used, name is: {:?}", fqchk.in_fq);
+            abc(&fqchk.in_fq, fqchk.quality_value);
         }
     }
 }
