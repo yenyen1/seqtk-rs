@@ -1,5 +1,5 @@
 use clap::{Args, Parser, Subcommand};
-use seqtk_rs::abc;
+use seqtk_rs::fq_check;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -21,7 +21,7 @@ struct FqchkArgs {
     in_fq: String,
 
     #[arg(short, long)]
-    /// quality value
+    /// quality value (default: 0)
     quality_value: Option<u32>,
 }
 
@@ -33,7 +33,7 @@ fn main() {
     match &cli.command {
         Commands::Fqchk(fqchk) => {
             println!("'myapp add' was used, name is: {:?}", fqchk.in_fq);
-            abc(&fqchk.in_fq, fqchk.quality_value);
+            fq_check(&fqchk.in_fq, fqchk.quality_value);
         }
     }
 }
