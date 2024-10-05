@@ -2,6 +2,7 @@ use flate2::read::MultiGzDecoder;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
+#[derive(Debug)]
 enum DNA {
     A(bool),
     T(bool),
@@ -9,16 +10,11 @@ enum DNA {
     G(bool),
     N,
 }
-#[derive(Debug)]
-enum AsciiBase {
-    AsciiBase33(u8),
-    AsciiBase64(u8),
-}
 
 struct Read {
     name: String,
     seq: Vec<DNA>,
-    qual: Vec<AsciiBase>,
+    qual: Vec<u8>,
 }
 
 impl Read {
@@ -30,7 +26,7 @@ impl Read {
         }
     }
     pub fn set_name(&mut self, name: &str) {
-        self.name = name.to_owned();
+        self.name = name.split_whitespace().next().unwrap_or("").to_string();
     }
     pub fn set_seq(&mut self, seq_string: &str) {
         self.seq = seq_string
@@ -48,34 +44,24 @@ impl Read {
             })
             .collect();
     }
-    pub fn set_qual(&mut self, qual_string: &str, ascii_base: u32) {
+    pub fn set_qual(&mut self, qual_string: &str, ascii_base: u8) {
         match ascii_base {
-            33 => {
-                self.qual = qual_string
-                    .chars()
-                    .map(|c| c as u8)
-                    .map(|c| AsciiBase::AsciiBase33(c - 33))
-                    .collect();
+            33 | 64 => {
+                self.qual = qual_string.chars().map(|c| c as u8 - ascii_base).collect();
             }
             _ => {
                 println!("ascii base not support");
             }
         }
     }
+    pub fn get_seq(&self) -> &Vec<DNA> {
+        &self.seq
+    }
     pub fn get_name(&self) -> &str {
         self.name.as_str()
     }
-    pub fn get_qual(&self) -> &Vec<AsciiBase> {
+    pub fn get_qual(&self) -> &Vec<u8> {
         &self.qual
-    }
-    pub fn get_qual_values(&self) -> Vec<u8> {
-        self.qual
-            .iter()
-            .map(|c| match c {
-                AsciiBase::AsciiBase33(v) => *v,
-                AsciiBase::AsciiBase64(v) => *v,
-            })
-            .collect()
     }
 }
 
@@ -140,7 +126,9 @@ pub fn process_fastq(fq_path: &str, quality_value: Option<u32>) -> io::Result<()
             },
             3 => {
                 cur_read.set_qual(&line_string, 33);
-                println!("test: {:?}", cur_read.get_qual_values());
+                println!("test name: {}", cur_read.get_name());
+                println!("test seq: {:?}", cur_read.get_seq());
+                println!("test qual: {:?}", cur_read.get_qual());
                 break;
             }
             _ => {}
