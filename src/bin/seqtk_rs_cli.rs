@@ -33,7 +33,7 @@ fn main() {
     match &cli.command {
         Commands::Fqchk(fqchk) => {
             println!("'myapp add' was used, name is: {:?}", fqchk.in_fq);
-            fq_check(&fqchk.in_fq, fqchk.quality_value);
+            fq_check::fq_check(&fqchk.in_fq, fqchk.quality_value);
         }
     }
 }
