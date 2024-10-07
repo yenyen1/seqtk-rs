@@ -22,7 +22,7 @@ struct FqchkArgs {
 
     #[arg(short, long)]
     /// quality value (default: 0)
-    quality_value: Option<u32>,
+    quality_value: Option<u8>,
 }
 
 fn main() {
