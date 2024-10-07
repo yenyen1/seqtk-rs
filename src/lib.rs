@@ -146,10 +146,12 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
 pub fn get_read_stats(reads_size: &mut [usize]) -> String {
     reads_size.sort();
     format!(
-        "Length: min={} ; med={} ; max={}",
+        "Length: mean={} ; min={} ; med={} ; max={} ; N50={}",
+        average(reads_size),
         reads_size.iter().min().unwrap(),
         median(reads_size),
-        reads_size.iter().max().unwrap()
+        reads_size.iter().max().unwrap(),
+        n50(reads_size)
     )
 }
 
@@ -166,20 +168,44 @@ pub fn process_fastq_gz(fq_path: &str, quality_value: Option<u8>) -> io::Result<
     Ok(())
 }
 
-pub fn median(sorted_arr: &[usize]) -> f64 {
-    let len_a = sorted_arr.len();
+pub fn median(arr: &[usize]) -> f64 {
+    let len_a = arr.len();
     match len_a {
         0 => 0.0,
         _ => {
+            let mut tmp_arr = arr.to_vec();
+            tmp_arr.sort();
             let mid = len_a / 2;
             match len_a % 2 {
-                1 => sorted_arr[mid] as f64,
-                _ => ((sorted_arr[mid - 1] as f64) + (sorted_arr[mid] as f64)) / 2.0,
+                1 => tmp_arr[mid] as f64,
+                _ => ((tmp_arr[mid - 1] as f64) + (tmp_arr[mid] as f64)) / 2.0,
             }
         }
     }
 }
 
-pub fn average(arr: Vec<usize>) -> usize {
-    arr.iter().sum::<usize>()
+pub fn average(arr: &[usize]) -> f64 {
+    let len_a = arr.len();
+    match len_a {
+        0 => 0.0,
+        _ => arr.iter().sum::<usize>() as f64 / len_a as f64,
+    }
+}
+pub fn n50(arr: &[usize]) -> usize {
+    let len_a = arr.len();
+    match len_a {
+        0 => 0,
+        _ => {
+            let mut tmp_arr = arr.to_vec();
+            tmp_arr.sort();
+            let half_sum = tmp_arr.iter().sum::<usize>() / 2;
+            let mut cur_acc_bases = 0;
+            let mut cur_read_size = 0;
+            while cur_acc_bases <= half_sum {
+                cur_read_size = tmp_arr.pop().unwrap();
+                cur_acc_bases += cur_read_size;
+            }
+            cur_read_size
+        }
+    }
 }
