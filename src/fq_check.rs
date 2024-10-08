@@ -1,6 +1,8 @@
+use crate::dna;
 use crate::sequence_read::SequenceRead;
 use crate::stats;
 use flate2::read::MultiGzDecoder;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
@@ -44,6 +46,8 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
 
     let mut cur_read = SequenceRead::empty_read();
     let mut reads_size = Vec::<usize>::new();
+    let mut hashmap_db: HashMap<usize, HashMap<char, usize>> =
+        HashMap::from([(0, init_dna_char_hashmap())]);
     for (i, line) in reader.lines().enumerate() {
         let line_string = line.expect("input line is not a String");
         let first_char = line_string.get(0..1).expect("line_string out of index");
@@ -67,23 +71,86 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
             3 => {
                 cur_read.set_qual(&line_string, 33);
                 reads_size.push(cur_read.get_seq_len());
-                // println!("test name: {}", cur_read.get_name());
-                // println!("test seq len: {}", cur_read.get_seq_len());
-                // println!("test qual: {:?}", cur_read.get_qual());
-                // break;
+                add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
             }
             _ => {}
         }
     }
-    println!("{}", get_read_stats(&reads_size));
+    // println!("{}", get_read_stats_string(&reads_size));
+    write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size)?;
+
     Ok(())
 }
 
-pub fn get_read_stats(reads_size: &[usize]) -> String {
+pub fn write_fq_stat_to_file(
+    path: &str,
+    hashmap_db: &HashMap<usize, HashMap<char, usize>>,
+    reads_size: &[usize],
+) -> io::Result<()> {
+    let mut output = File::create(path)?;
+    write!(output, "{}", get_read_stats_string(reads_size))?;
+    // for (key, val) in hashmap_db.iter() {
+    //     println!("{} : {:?}", key, val);
+    // }
+    Ok(())
+}
+
+pub fn add_sequence_count_into_hashmap(
+    hashmap_db: &mut HashMap<usize, HashMap<char, usize>>,
+    read: &SequenceRead,
+) {
+    for (i, char) in read.get_seq().iter().enumerate() {
+        add_dna_char_count_into_pos(0, hashmap_db, char);
+        add_dna_char_count_into_pos(i + 1, hashmap_db, char);
+    }
+}
+
+pub fn add_dna_char_count_into_pos(
+    pos: usize,
+    hashmap_db: &mut HashMap<usize, HashMap<char, usize>>,
+    char: &dna::DNA,
+) {
+    match char {
+        dna::DNA::A(true) | dna::DNA::A(false) => {
+            add_char_count_into_pos(pos, hashmap_db, 'A');
+        }
+        dna::DNA::T(true) | dna::DNA::T(false) => {
+            add_char_count_into_pos(pos, hashmap_db, 'T');
+        }
+        dna::DNA::C(true) | dna::DNA::C(false) => {
+            add_char_count_into_pos(pos, hashmap_db, 'C');
+        }
+        dna::DNA::G(true) | dna::DNA::G(false) => {
+            add_char_count_into_pos(pos, hashmap_db, 'G');
+        }
+        dna::DNA::N => {
+            add_char_count_into_pos(pos, hashmap_db, 'N');
+        }
+    }
+}
+
+pub fn add_char_count_into_pos(
+    pos: usize,
+    hashmap_db: &mut HashMap<usize, HashMap<char, usize>>,
+    char: char,
+) {
+    hashmap_db
+        .entry(pos)
+        .or_insert(init_dna_char_hashmap())
+        .entry(char)
+        .and_modify(|c| *c += 1)
+        .or_insert(1);
+}
+
+pub fn init_dna_char_hashmap() -> HashMap<char, usize> {
+    HashMap::from([('A', 0), ('T', 0), ('C', 0), ('G', 0), ('N', 0)])
+}
+
+pub fn get_read_stats_string(reads_size: &[usize]) -> String {
     let mut sorted_reads_size = reads_size.to_vec();
     sorted_reads_size.sort();
     format!(
-        "Length: mean={} ; min={} ; med={} ; max={} ; N50={}",
+        "Length: mean={} ; min={} ; med={} ; max={} ; N50={}\n",
         stats::average(&sorted_reads_size),
         sorted_reads_size.iter().min().unwrap(),
         stats::median(&sorted_reads_size),
