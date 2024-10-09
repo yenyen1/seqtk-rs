@@ -3,6 +3,7 @@ use crate::sequence_read::SequenceRead;
 use crate::stats;
 use flate2::read::MultiGzDecoder;
 use std::collections::HashMap;
+use std::fmt::format;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
@@ -76,9 +77,7 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
             _ => {}
         }
     }
-    // println!("{}", get_read_stats_string(&reads_size));
     write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size)?;
-
     Ok(())
 }
 
@@ -88,13 +87,46 @@ fn write_fq_stat_to_file(
     reads_size: &[usize],
 ) -> io::Result<()> {
     let mut output = File::create(path)?;
-    write!(output, "{}", get_read_stats_string(reads_size))?;
-    let mut key_vec: Vec<&usize> = hashmap_db.keys().collect();
-    key_vec.sort();
-    // for (key, val) in hashmap_db.iter() {
-    //     println!("{} : {:?}", key, val);
-    // }
+    writeln!(output, "{}", get_read_stats_string(reads_size))?;
+    writeln!(output, "POS\t#bases\t%A\t%C\t%T\t%G\t%N")?;
+    for pos in 0..(hashmap_db.len()) {
+        writeln!(output, "{}", get_dna_stats_string(hashmap_db, pos))?;
+    }
     Ok(())
+}
+
+fn get_dna_stats_string(hashmap_db: &HashMap<usize, HashMap<char, usize>>, pos: usize) -> String {
+    let total = get_hasmapdb_value(hashmap_db, pos, 'A')
+        + get_hasmapdb_value(hashmap_db, pos, 'T')
+        + get_hasmapdb_value(hashmap_db, pos, 'C')
+        + get_hasmapdb_value(hashmap_db, pos, 'G')
+        + get_hasmapdb_value(hashmap_db, pos, 'N');
+    let out = format!(
+        "{}\t{:.2}\t{:.2}\t{:.2}\t{:.2}\t{:.2}",
+        total,
+        100.0 * get_hasmapdb_value(hashmap_db, pos, 'A') as f64 / total as f64,
+        100.0 * get_hasmapdb_value(hashmap_db, pos, 'C') as f64 / total as f64,
+        100.0 * get_hasmapdb_value(hashmap_db, pos, 'T') as f64 / total as f64,
+        100.0 * get_hasmapdb_value(hashmap_db, pos, 'G') as f64 / total as f64,
+        100.0 * get_hasmapdb_value(hashmap_db, pos, 'N') as f64 / total as f64
+    );
+    match pos {
+        0 => {
+            format!("Total\t{}", out)
+        }
+        _ => {
+            format!("{}\t{}", pos, out)
+        }
+    }
+}
+
+fn get_hasmapdb_value(
+    hashmap_db: &HashMap<usize, HashMap<char, usize>>,
+    pos: usize,
+    key: char,
+) -> usize {
+    let tmp_hasmap = hashmap_db.get(&pos).expect("should not happened");
+    *tmp_hasmap.get(&key).expect("should not happend")
 }
 
 fn add_sequence_count_into_hashmap(
@@ -148,7 +180,7 @@ fn get_read_stats_string(reads_size: &[usize]) -> String {
     let mut sorted_reads_size = reads_size.to_vec();
     sorted_reads_size.sort();
     format!(
-        "Length: mean={} ; min={} ; med={} ; max={} ; N50={}\n",
+        "Length: mean={} ; min={} ; med={} ; max={} ; N50={}",
         stats::average(&sorted_reads_size),
         sorted_reads_size.iter().min().unwrap(),
         stats::median(&sorted_reads_size),
