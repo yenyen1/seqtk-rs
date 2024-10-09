@@ -9,7 +9,7 @@ homepage = "https://github.com/yenyen1/seqtk-rs"
 repository = "https://github.com/yenyen1/seqtk-rs"
 
 [dependencies]
-clap = { version = "4.5.19", features = ["derive"] }
+clap = { version = "4.5.20", features = ["derive"] }
 flate2 = "1.0.34"
 
 [[bin]]

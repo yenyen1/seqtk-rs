@@ -89,6 +89,8 @@ fn write_fq_stat_to_file(
 ) -> io::Result<()> {
     let mut output = File::create(path)?;
     write!(output, "{}", get_read_stats_string(reads_size))?;
+    let mut key_vec: Vec<&usize> = hashmap_db.keys().collect();
+    key_vec.sort();
     // for (key, val) in hashmap_db.iter() {
     //     println!("{} : {:?}", key, val);
     // }
