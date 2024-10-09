@@ -47,7 +47,7 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
     let mut cur_read = SequenceRead::empty_read();
     let mut reads_size = Vec::<usize>::new();
     let mut hashmap_db: HashMap<usize, HashMap<char, usize>> =
-        HashMap::from([(0, init_dna_char_hashmap())]);
+        HashMap::from([(0, init_dna_char_hashmap())]); // 0: all
     for (i, line) in reader.lines().enumerate() {
         let line_string = line.expect("input line is not a String");
         let first_char = line_string.get(0..1).expect("line_string out of index");
@@ -82,7 +82,7 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
     Ok(())
 }
 
-pub fn write_fq_stat_to_file(
+fn write_fq_stat_to_file(
     path: &str,
     hashmap_db: &HashMap<usize, HashMap<char, usize>>,
     reads_size: &[usize],
@@ -95,7 +95,7 @@ pub fn write_fq_stat_to_file(
     Ok(())
 }
 
-pub fn add_sequence_count_into_hashmap(
+fn add_sequence_count_into_hashmap(
     hashmap_db: &mut HashMap<usize, HashMap<char, usize>>,
     read: &SequenceRead,
 ) {
@@ -105,22 +105,22 @@ pub fn add_sequence_count_into_hashmap(
     }
 }
 
-pub fn add_dna_char_count_into_pos(
+fn add_dna_char_count_into_pos(
     pos: usize,
     hashmap_db: &mut HashMap<usize, HashMap<char, usize>>,
     char: &dna::DNA,
 ) {
     match char {
-        dna::DNA::A(true) | dna::DNA::A(false) => {
+        dna::DNA::A(_) => {
             add_char_count_into_pos(pos, hashmap_db, 'A');
         }
-        dna::DNA::T(true) | dna::DNA::T(false) => {
+        dna::DNA::T(_) => {
             add_char_count_into_pos(pos, hashmap_db, 'T');
         }
-        dna::DNA::C(true) | dna::DNA::C(false) => {
+        dna::DNA::C(_) => {
             add_char_count_into_pos(pos, hashmap_db, 'C');
         }
-        dna::DNA::G(true) | dna::DNA::G(false) => {
+        dna::DNA::G(_) => {
             add_char_count_into_pos(pos, hashmap_db, 'G');
         }
         dna::DNA::N => {
@@ -129,24 +129,20 @@ pub fn add_dna_char_count_into_pos(
     }
 }
 
-pub fn add_char_count_into_pos(
+fn add_char_count_into_pos(
     pos: usize,
     hashmap_db: &mut HashMap<usize, HashMap<char, usize>>,
     char: char,
 ) {
-    hashmap_db
-        .entry(pos)
-        .or_insert(init_dna_char_hashmap())
-        .entry(char)
-        .and_modify(|c| *c += 1)
-        .or_insert(1);
+    let inner_map = hashmap_db.entry(pos).or_insert_with(init_dna_char_hashmap);
+    *inner_map.entry(char).or_insert(0) += 1;
 }
 
-pub fn init_dna_char_hashmap() -> HashMap<char, usize> {
+fn init_dna_char_hashmap() -> HashMap<char, usize> {
     HashMap::from([('A', 0), ('T', 0), ('C', 0), ('G', 0), ('N', 0)])
 }
 
-pub fn get_read_stats_string(reads_size: &[usize]) -> String {
+fn get_read_stats_string(reads_size: &[usize]) -> String {
     let mut sorted_reads_size = reads_size.to_vec();
     sorted_reads_size.sort();
     format!(
