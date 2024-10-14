@@ -23,6 +23,9 @@ struct FqchkArgs {
     #[arg(short, long)]
     /// quality value (default: 0)
     quality_value: Option<u8>,
+
+    /// ascii value (default: 33)
+    ascii_base: Option<u8>,
 }
 
 fn main() {
@@ -32,8 +35,12 @@ fn main() {
     // matches just as you would the top level cmd
     match &cli.command {
         Commands::Fqchk(fqchk) => {
-            println!("'myapp add' was used, name is: {:?}", fqchk.in_fq);
-            fq_check::fq_check(&fqchk.in_fq, fqchk.quality_value);
+            // println!("'myapp add' was used, name is: {:?}", fqchk.in_fq);
+            fq_check::fq_check(
+                &fqchk.in_fq,
+                fqchk.quality_value.unwrap_or(0),
+                fqchk.ascii_base.unwrap_or(33),
+            );
         }
     }
 }

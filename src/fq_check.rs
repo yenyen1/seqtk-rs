@@ -3,15 +3,14 @@ use crate::sequence_read::SequenceRead;
 use crate::stats;
 use flate2::read::MultiGzDecoder;
 use std::collections::HashMap;
-use std::fmt::format;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
-pub fn fq_check(fq_path: &str, quality_value: Option<u8>) {
+pub fn fq_check(fq_path: &str, quality_value: u8, ascii_bases: u8) {
     let fq_post_fix = fq_path.split(".").last().unwrap_or("");
     match fq_post_fix {
         "fq" | "fastq" => {
-            process_fastq_and_check(fq_path, quality_value)
+            process_fastq_and_check(fq_path, quality_value, ascii_bases)
                 .expect("[Error] failed to process fastq file.");
         }
         "fa" | "fasta" => {
@@ -38,10 +37,7 @@ pub fn fq_check(fq_path: &str, quality_value: Option<u8>) {
     }
 }
 
-pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::Result<()> {
-    // let q = quality_value.unwrap_or(0);
-    // println!("process fastq: {} {}", fq_path, q);
-
+fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) -> io::Result<()> {
     let file = File::open(fq_path)?;
     let reader = BufReader::new(file);
 
@@ -70,7 +66,7 @@ pub fn process_fastq_and_check(fq_path: &str, quality_value: Option<u8>) -> io::
                 }
             },
             3 => {
-                cur_read.set_qual(&line_string, 33);
+                cur_read.set_qual(&line_string, ascii_bases);
                 reads_size.push(cur_read.get_seq_len());
                 add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
             }
@@ -189,10 +185,7 @@ fn get_read_stats_string(reads_size: &[usize]) -> String {
     )
 }
 
-pub fn process_fastq_gz(fq_path: &str, quality_value: Option<u8>) -> io::Result<()> {
-    let q = quality_value.unwrap_or(0);
-    println!("process fastq: {} {}", fq_path, q);
-
+pub fn process_fastq_gz(fq_path: &str, quality_value: u8) -> io::Result<()> {
     let file = File::open(fq_path)?;
     let reader = BufReader::new(MultiGzDecoder::new(file));
     for line in reader.lines() {
