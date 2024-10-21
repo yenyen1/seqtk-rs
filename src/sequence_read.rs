@@ -15,7 +15,8 @@ impl SequenceRead {
         }
     }
     pub fn set_name(&mut self, name: &str) {
-        self.name = name.split_whitespace().next().unwrap_or("").to_string();
+        // self.name = name.split_whitespace().next().unwrap_or("").to_string();
+        self.name = name.to_string();
     }
     pub fn set_seq(&mut self, seq_string: &str) {
         self.seq = seq_string

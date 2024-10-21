@@ -1,4 +1,6 @@
 use crate::dna;
+use crate::fx_iterator;
+use crate::fx_iterator::FxIterator;
 use crate::sequence_read::SequenceRead;
 use crate::stats;
 use flate2::read::MultiGzDecoder;
@@ -7,71 +9,26 @@ use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
 
 pub fn fq_check(fq_path: &str, quality_value: u8, ascii_bases: u8) {
-    let fq_post_fix = fq_path.split(".").last().unwrap_or("");
-    match fq_post_fix {
-        "fq" | "fastq" => {
-            process_fastq_and_check(fq_path, quality_value, ascii_bases)
-                .expect("[Error] failed to process fastq file.");
-        }
-        "fa" | "fasta" => {
-            println!("add fasta later")
-        }
-        "gz" => {
-            let fq_post_fix_wo_gz = fq_path.rsplit(".").nth(1).unwrap_or("");
-            match fq_post_fix_wo_gz {
-                "fq" | "fastq" => {
-                    process_fastq_gz(fq_path, quality_value)
-                        .expect("[Error] failed to process fastq.gz file.");
-                }
-                "fa" | "fasta" => {
-                    println!("add fasta later")
-                }
-                _ => {
-                    println!("[Error] Input file format {} not supported", fq_post_fix);
-                }
-            }
-        }
-        _ => {
-            println!("[Error] Input file format {} not supported", fq_post_fix);
-        }
-    }
+    process_fastq_and_check(fq_path, quality_value, ascii_bases)
+        .expect("Failed to process fastq file.");
 }
 
 fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) -> io::Result<()> {
-    let file = File::open(fq_path)?;
-    let reader = BufReader::new(file);
+    // let file = File::open(fq_path)?;
+    // let reader = BufReader::new(file);
 
-    let mut cur_read = SequenceRead::empty_read();
     let mut reads_size = Vec::<usize>::new();
     let mut hashmap_db: HashMap<usize, HashMap<char, usize>> =
         HashMap::from([(0, init_dna_char_hashmap())]); // 0: all
-    for (i, line) in reader.lines().enumerate() {
-        let line_string = line.expect("input line is not a String");
-        let first_char = line_string.get(0..1).expect("line_string out of index");
-        match i % 4 {
-            0 => {
-                if first_char == "@" {
-                    cur_read = SequenceRead::empty_read();
-                    cur_read.set_name(line_string.get(1..).expect("line_string out of index"));
-                } else {
-                    println!("Not found read name char @ in fastq file");
-                }
-            }
-            1 => match first_char {
-                "A" | "T" | "C" | "G" | "N" => {
-                    cur_read.set_seq(&line_string);
-                }
-                _ => {
-                    println!("Not an expected char (ATCGN) for the first char in seq.");
-                }
-            },
-            3 => {
-                cur_read.set_qual(&line_string, ascii_bases);
-                reads_size.push(cur_read.get_seq_len());
-                add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
-            }
-            _ => {}
-        }
+
+    let mut fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
+    while let Some(fx_lines) = fq_iter.next() {
+        let mut cur_read = SequenceRead::empty_read();
+        cur_read.set_name(fx_lines[0].trim());
+        cur_read.set_seq(fx_lines[1].trim());
+        cur_read.set_qual(fx_lines[3].trim(), ascii_bases);
+        add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
+        reads_size.push(cur_read.get_seq_len());
     }
     write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size)?;
     Ok(())

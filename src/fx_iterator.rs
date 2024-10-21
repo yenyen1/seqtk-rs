@@ -1,6 +1,9 @@
+use clap::Error;
 use flate2::read::MultiGzDecoder;
+use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{self, prelude::*, BufReader};
+use std::path::Path;
 
 enum FxType {
     Fasta,
@@ -11,28 +14,37 @@ pub struct FxIterator {
     file_type: FxType,
 }
 
+fn is_filetype(file_path: &Path, f_type: &str) -> bool {
+    file_path.extension().and_then(OsStr::to_str) == Some(f_type)
+}
+
+fn get_fx_type(f_type: &str) -> Result<FxType, io::Error> {
+    let fx_type = match f_type {
+        "fastq" | "fq" => FxType::Fastq,
+        "fasta" | "fa" => FxType::Fasta,
+        _ => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "wrong file extension.",
+            ))
+        }
+    };
+    Ok(fx_type)
+}
+
 impl FxIterator {
-    pub fn new(file_path: &str, f_type: &str, is_gz: bool) -> Result<FxIterator, io::Error> {
-        let file = File::open(file_path)?;
-        let reader: Box<dyn BufRead> = if is_gz {
+    pub fn new(file_path: &str, f_type: &str) -> Result<FxIterator, io::Error> {
+        let path = Path::new(file_path);
+        let file = File::open(path)?;
+        let reader: Box<dyn BufRead> = if is_filetype(path, "gz") {
             Box::new(BufReader::new(MultiGzDecoder::new(file)))
         } else {
             Box::new(BufReader::new(file))
         };
-        let fx_type = match f_type {
-            "fastq" | "fq" => FxType::Fastq,
-            "fasta" | "fa" => FxType::Fasta,
-            _ => {
-                return Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "wrong file extension.",
-                ))
-            }
-        };
 
         Ok(FxIterator {
-            reader: reader,
-            file_type: fx_type,
+            reader,
+            file_type: get_fx_type(f_type).unwrap(),
         })
     }
 }
@@ -46,8 +58,8 @@ impl Iterator for FxIterator {
             FxType::Fastq => 4,
         };
         let mut fx_lines = vec![String::new(); step];
-        for i in 0..step {
-            match self.reader.read_line(&mut fx_lines[i]) {
+        for buf in fx_lines.iter_mut().take(step) {
+            match self.reader.read_line(buf) {
                 Ok(_) => {}
                 Err(_) => {
                     return None;
