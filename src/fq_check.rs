@@ -1,12 +1,10 @@
 use crate::dna;
-use crate::fx_iterator;
 use crate::fx_iterator::FxIterator;
 use crate::sequence_read::SequenceRead;
 use crate::stats;
-use flate2::read::MultiGzDecoder;
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::{self, prelude::*};
 
 pub fn fq_check(fq_path: &str, quality_value: u8, ascii_bases: u8) {
     process_fastq_and_check(fq_path, quality_value, ascii_bases)
@@ -14,10 +12,7 @@ pub fn fq_check(fq_path: &str, quality_value: u8, ascii_bases: u8) {
 }
 
 fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) -> io::Result<()> {
-    // let file = File::open(fq_path)?;
-    // let reader = BufReader::new(file);
-
-    let mut reads_size = Vec::<usize>::new();
+    // let mut reads_size = Vec::<usize>::new();
     let mut hashmap_db: HashMap<usize, HashMap<char, usize>> =
         HashMap::from([(0, init_dna_char_hashmap())]); // 0: all
 
@@ -28,19 +23,18 @@ fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) ->
         cur_read.set_seq(fx_lines[1].trim());
         cur_read.set_qual(fx_lines[3].trim(), ascii_bases);
         add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
-        reads_size.push(cur_read.get_seq_len());
+        // reads_size.push(cur_read.get_seq_len());
     }
-    write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size)?;
+    write_fq_stat_to_file("test.txt", &hashmap_db)?;
     Ok(())
 }
 
 fn write_fq_stat_to_file(
     path: &str,
     hashmap_db: &HashMap<usize, HashMap<char, usize>>,
-    reads_size: &[usize],
 ) -> io::Result<()> {
     let mut output = File::create(path)?;
-    writeln!(output, "{}", get_read_stats_string(reads_size))?;
+    // writeln!(output, "{}", get_read_stats_string(reads_size))?;
     writeln!(output, "POS\t#bases\t%A\t%C\t%T\t%G\t%N")?;
     for pos in 0..(hashmap_db.len()) {
         writeln!(output, "{}", get_dna_stats_string(hashmap_db, pos))?;
@@ -140,14 +134,4 @@ fn get_read_stats_string(reads_size: &[usize]) -> String {
         sorted_reads_size.iter().max().unwrap(),
         stats::n50(&sorted_reads_size)
     )
-}
-
-pub fn process_fastq_gz(fq_path: &str, quality_value: u8) -> io::Result<()> {
-    let file = File::open(fq_path)?;
-    let reader = BufReader::new(MultiGzDecoder::new(file));
-    for line in reader.lines() {
-        let line_string = line.expect("not a line");
-        println!("print > {}", line_string);
-    }
-    Ok(())
 }

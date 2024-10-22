@@ -60,6 +60,9 @@ impl Iterator for FxIterator {
         let mut fx_lines = vec![String::new(); step];
         for buf in fx_lines.iter_mut().take(step) {
             match self.reader.read_line(buf) {
+                Ok(0) => {
+                    return None;
+                } // EOF reached, return None if no lines were read
                 Ok(_) => {}
                 Err(_) => {
                     return None;
