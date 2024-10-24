@@ -1,9 +1,11 @@
+use strum_macros::EnumIter;
+
 #[allow(clippy::upper_case_acronyms)]
-#[derive(Debug)]
+#[derive(Debug, EnumIter, Hash, Clone, Eq, PartialEq)]
 pub enum DNA {
-    A(bool),
-    T(bool),
-    C(bool),
-    G(bool),
+    A,
+    T,
+    C,
+    G,
     N,
 }

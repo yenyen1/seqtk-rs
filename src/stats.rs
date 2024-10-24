@@ -1,3 +1,7 @@
+use std::iter::Sum;
+use std::ops::{Add, Div};
+// use std::iter::Iterator::Sum;
+
 pub fn median(sorted_arr: &[usize]) -> f64 {
     let len_a = sorted_arr.len();
     match len_a {
@@ -12,13 +16,18 @@ pub fn median(sorted_arr: &[usize]) -> f64 {
     }
 }
 
-pub fn average(arr: &[usize]) -> f64 {
+pub fn average<T>(arr: &[T]) -> f32
+where
+    T: Copy + Add<Output = T> + Sum + Into<f32> + Default,
+{
     let len_a = arr.len();
-    match len_a {
-        0 => f64::NAN,
-        _ => arr.iter().sum::<usize>() as f64 / len_a as f64,
+    if len_a == 0 {
+        return f32::NAN;
     }
+    let sum: f32 = arr.iter().copied().map(Into::into).sum();
+    sum / (len_a as f32)
 }
+
 pub fn n50(sorted_arr: &[usize]) -> usize {
     let len_a = sorted_arr.len();
     match len_a {
