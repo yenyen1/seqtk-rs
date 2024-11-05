@@ -53,10 +53,10 @@ impl SequenceRead {
             .collect()
     }
 
-    pub fn get_p_error_score_f32(&self) -> Vec<f32> {
+    pub fn get_p_error_score_f64(&self) -> Vec<f64> {
         self.qual
             .chars()
-            .map(|c| 10.0f32.powf(-0.1 * (c as u8 - self.ascii_bases) as f32))
+            .map(|c| 10.0f64.powf(-0.1 * (c as u8 - self.ascii_bases) as f64))
             .collect()
     }
 
