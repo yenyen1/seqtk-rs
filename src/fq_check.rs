@@ -10,7 +10,7 @@ use std::io::{self, prelude::*};
 use strum::IntoEnumIterator;
 
 pub fn fq_check(fq_path: &str, quality_threshold: u8, ascii_bases: u8) {
-    if ascii_bases != 33 && ascii_bases != 64 {
+    if ascii_bases != 33u8 && ascii_bases != 64u8 {
         println!("Warning: Input ascii base {} is not 33 or 64.", ascii_bases);
     }
     process_fastq_and_check(fq_path, quality_threshold, ascii_bases)
@@ -23,8 +23,8 @@ fn process_fastq_and_check(
     ascii_bases: u8,
 ) -> io::Result<()> {
     let mut reads_size = Vec::<u32>::new();
-    let mut hashmap_db: HashMap<usize, HashMap<DNA, usize>> =
-        HashMap::from([(0, init_dna_char_hashmap())]); // 0: Total
+    let mut hashmap_db: HashMap<i64, HashMap<DNA, usize>> =
+        HashMap::from([(0, init_dna_char_hashmap())]); // 0: Total ; -1: %Low ; -2: %High
     let mut qual_value_hashset: HashSet<char> = HashSet::new();
 
     let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
@@ -32,47 +32,39 @@ fn process_fastq_and_check(
     for fx_lines in fq_iter {
         let cur_read = create_sequence_read(fx_lines, ascii_bases)?;
 
-        add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read, quality_threshold);
-        qual_value_hashset.extend(cur_read.get_qaul_char());
-        reads_size.push(cur_read.get_seq_len() as u32);
-        // let cur_qual_u8 = cur_read.get_q_qual_score_u8();
-        // println!("qual u8: {:?}", cur_qual_u8);
-        // println!("avg qual u8: {}", stats::average(&cur_qual_u8));
-        // let cur_p_error_f32 = cur_read.get_p_error_score_f32();
-        // let q_err = stats::average(&cur_p_error_f32);
-        // println!("p err f32: {:?}", cur_p_error_f32);
-        // println!("avg q err: {}", q_err);
-        // let p_err_to_q = -10.0 * f32::log10(q_err);
-        // println!("p_err_to_q: {}", p_err_to_q);
-        // break;
+        add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
+        qual_value_hashset.extend(cur_read.get_qual_chars());
+        reads_size.push(cur_read.get_seq_length() as u32);
     }
-    write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size)?;
+    write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size, qual_value_hashset.len())?;
     Ok(())
 }
 
 fn create_sequence_read(fx_lines: Vec<String>, ascii_bases: u8) -> Result<SequenceRead, io::Error> {
-    let mut cur_read = SequenceRead::empty_read();
-    cur_read.set_name(fx_lines[0].trim());
-    cur_read.set_seq(fx_lines[1].trim());
-    cur_read.set_qual(fx_lines[3].trim(), ascii_bases);
+    let mut cur_read = SequenceRead::empty_read(ascii_bases);
+    cur_read.set_read_name(fx_lines[0].trim());
+    cur_read.set_read_seq(fx_lines[1].trim());
+    cur_read.set_read_qual_str(fx_lines[3].trim());
     Ok(cur_read)
 }
 
 fn write_fq_stat_to_file(
     path: &str,
-    hashmap_db: &HashMap<usize, HashMap<DNA, usize>>,
+    hashmap_db: &HashMap<i64, HashMap<DNA, usize>>,
     reads_size: &[u32],
+    uniq_qual_value_count: usize,
 ) -> io::Result<()> {
     let mut output = File::create(path)?;
+    writeln!(output, "[Quality value] {} distinct quality values.", uniq_qual_value_count)?;
     writeln!(output, "{}", get_read_stats_string(reads_size))?;
     writeln!(output, "POS\t#bases\t%A\t%C\t%G\t%T\t%N")?;
     for pos in 0..(hashmap_db.len()) {
-        writeln!(output, "{}", get_dna_stats_string(hashmap_db, pos))?;
+        writeln!(output, "{}", get_dna_stats_string(hashmap_db, pos as i64))?;
     }
     Ok(())
 }
 
-fn get_dna_stats_string(hashmap_db: &HashMap<usize, HashMap<DNA, usize>>, pos: usize) -> String {
+fn get_dna_stats_string(hashmap_db: &HashMap<i64, HashMap<DNA, usize>>, pos: i64) -> String {
     let total = get_hasmapdb_value(hashmap_db, pos, DNA::A)
         + get_hasmapdb_value(hashmap_db, pos, DNA::C)
         + get_hasmapdb_value(hashmap_db, pos, DNA::G)
@@ -98,8 +90,8 @@ fn get_dna_stats_string(hashmap_db: &HashMap<usize, HashMap<DNA, usize>>, pos: u
 }
 
 fn get_hasmapdb_value(
-    hashmap_db: &HashMap<usize, HashMap<DNA, usize>>,
-    pos: usize,
+    hashmap_db: &HashMap<i64, HashMap<DNA, usize>>,
+    pos: i64,
     key: DNA,
 ) -> usize {
     let tmp_hasmap = hashmap_db.get(&pos).expect("should not happened");
@@ -107,23 +99,22 @@ fn get_hasmapdb_value(
 }
 
 fn add_sequence_count_into_hashmap(
-    hashmap_db: &mut HashMap<usize, HashMap<DNA, usize>>,
+    hashmap_db: &mut HashMap<i64, HashMap<DNA, usize>>,
     read: &SequenceRead,
-    quality_threshold: u8,
 ) {
     for (i, char) in read
-        .get_seq_with_qual_value_threshold(quality_threshold)
+        .get_seq()
         .iter()
         .enumerate()
     {
-        add_dna_char_count_into_pos(0, hashmap_db, char);
-        add_dna_char_count_into_pos(i + 1, hashmap_db, char);
+        add_dna_char_count_into_pos(0_i64, hashmap_db, char);
+        add_dna_char_count_into_pos((i + 1) as i64, hashmap_db, char);
     }
 }
 
 fn add_dna_char_count_into_pos(
-    pos: usize,
-    hashmap_db: &mut HashMap<usize, HashMap<DNA, usize>>,
+    pos: i64,
+    hashmap_db: &mut HashMap<i64, HashMap<DNA, usize>>,
     char: &DNA,
 ) {
     let inner_map = hashmap_db.entry(pos).or_insert_with(init_dna_char_hashmap);
@@ -142,7 +133,7 @@ fn get_read_stats_string(reads_size: &[u32]) -> String {
     let mut sorted_reads_size = reads_size.to_vec();
     sorted_reads_size.sort();
     format!(
-        "Length: mean={} ; min={} ; med={} ; max={} ; N50={}",
+        "[Length] mean={} ; min={} ; med={} ; max={} ; N50={}",
         stats::average(&sorted_reads_size),
         sorted_reads_size.first().unwrap(),
         stats::median_sorted_arr(&sorted_reads_size),
