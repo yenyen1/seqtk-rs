@@ -9,15 +9,19 @@ use std::io::{self, prelude::*};
 
 use strum::IntoEnumIterator;
 
-pub fn fq_check(fq_path: &str, quality_value: u8, ascii_bases: u8) {
+pub fn fq_check(fq_path: &str, quality_threshold: u8, ascii_bases: u8) {
     if ascii_bases != 33 && ascii_bases != 64 {
         println!("Warning: Input ascii base {} is not 33 or 64.", ascii_bases);
     }
-    process_fastq_and_check(fq_path, quality_value, ascii_bases)
+    process_fastq_and_check(fq_path, quality_threshold, ascii_bases)
         .expect("Failed to process fastq file.");
 }
 
-fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) -> io::Result<()> {
+fn process_fastq_and_check(
+    fq_path: &str,
+    quality_threshold: u8,
+    ascii_bases: u8,
+) -> io::Result<()> {
     let mut reads_size = Vec::<u32>::new();
     let mut hashmap_db: HashMap<usize, HashMap<DNA, usize>> =
         HashMap::from([(0, init_dna_char_hashmap())]); // 0: Total
@@ -26,11 +30,9 @@ fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) ->
     let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
 
     for fx_lines in fq_iter {
-        let mut cur_read = SequenceRead::empty_read();
-        // cur_read.set_name(fx_lines[0].trim());
-        cur_read.set_seq(fx_lines[1].trim());
-        cur_read.set_qual(fx_lines[3].trim(), ascii_bases);
-        add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read);
+        let cur_read = create_sequence_read(fx_lines, ascii_bases)?;
+
+        add_sequence_count_into_hashmap(&mut hashmap_db, &cur_read, quality_threshold);
         qual_value_hashset.extend(cur_read.get_qaul_char());
         reads_size.push(cur_read.get_seq_len() as u32);
         // let cur_qual_u8 = cur_read.get_q_qual_score_u8();
@@ -46,6 +48,14 @@ fn process_fastq_and_check(fq_path: &str, quality_value: u8, ascii_bases: u8) ->
     }
     write_fq_stat_to_file("test.txt", &hashmap_db, &reads_size)?;
     Ok(())
+}
+
+fn create_sequence_read(fx_lines: Vec<String>, ascii_bases: u8) -> Result<SequenceRead, io::Error> {
+    let mut cur_read = SequenceRead::empty_read();
+    cur_read.set_name(fx_lines[0].trim());
+    cur_read.set_seq(fx_lines[1].trim());
+    cur_read.set_qual(fx_lines[3].trim(), ascii_bases);
+    Ok(cur_read)
 }
 
 fn write_fq_stat_to_file(
@@ -99,8 +109,13 @@ fn get_hasmapdb_value(
 fn add_sequence_count_into_hashmap(
     hashmap_db: &mut HashMap<usize, HashMap<DNA, usize>>,
     read: &SequenceRead,
+    quality_threshold: u8,
 ) {
-    for (i, char) in read.get_seq().iter().enumerate() {
+    for (i, char) in read
+        .get_seq_with_qual_value_threshold(quality_threshold)
+        .iter()
+        .enumerate()
+    {
         add_dna_char_count_into_pos(0, hashmap_db, char);
         add_dna_char_count_into_pos(i + 1, hashmap_db, char);
     }
