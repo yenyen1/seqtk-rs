@@ -19,7 +19,8 @@ fn process_fastq_and_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -
     let mut reads_size = Vec::<u32>::new();
     let mut hashmap_dna_count = init_pos_hashmap_for_dna_count_hashmap(); // 0: Total
     let mut hashmap_low_qual_dna_count = init_pos_hashmap_for_dna_count_hashmap(); // 0: Total
-    let mut qual_value_hashset: HashSet<char> = HashSet::new();
+    let mut hashmap_qual_sum = init_qual_stats_hashmap();
+    let mut qual_value_hashset: HashSet<u8> = HashSet::new();
 
     let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
     for fx_lines in fq_iter {
@@ -31,14 +32,25 @@ fn process_fastq_and_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -
             &cur_read,
             &qual_threshold,
         );
-        qual_value_hashset.extend(cur_read.get_qual_chars());
+        add_qual_for_a_read(&mut hashmap_qual_sum, &cur_read);
+        qual_value_hashset.extend(cur_read.get_q_score_vec());
         reads_size.push(cur_read.get_seq_length() as u32);
     }
+
+    // let pos = 1;
+    // let p_avg = hashmap_qual_sum.get(&'P').expect("ex").get(&pos).expect("ex");
+    // let q_avg = hashmap_qual_sum.get(&'Q').expect("ex").get(&pos).expect("ex");
+
+    // let total: usize = hashmap_dna_count.get(&pos).expect("ex").values().sum();
+    // println!("p err: sum: {:?} ; size: {} ; avg: {}", p_avg, total, p_avg/total as f64);
+    // println!("Q score: sum: {:?} ; size: {} ; avg: {}", q_avg, total, q_avg/total as f64);
+    // println!("P_err to Q: {}", SequenceRead::convert_p_err_to_q_score(p_avg/total as f64));
 
     write_fq_stat_to_file(
         "test.txt",
         &hashmap_dna_count,
         &hashmap_low_qual_dna_count,
+        &hashmap_qual_sum,
         &reads_size,
         qual_value_hashset.len(),
     )?;
@@ -72,13 +84,37 @@ fn add_low_qual_dna_count_to_hashmap(
     qual_threshold: &u8,
 ) {
     if *qual_threshold != 0_u8 {
-        for (i, qual) in read.get_q_qual_score_u8().iter().enumerate() {
+        for (i, qual) in read.get_q_score_vec().iter().enumerate() {
             if qual < qual_threshold {
                 let dna = read.get_seq_char(i);
                 add_dna_count_for_a_pos(0, hashmap_low_qual_dna_count, &dna);
                 add_dna_count_for_a_pos(i + 1, hashmap_low_qual_dna_count, &dna);
             }
         }
+    }
+}
+fn init_qual_stats_hashmap() -> HashMap<char, HashMap<usize, f64>> {
+    HashMap::from([
+        ('Q', HashMap::from([(0, 0.0)])),
+        ('P', HashMap::from([(0, 0.0)])),
+    ])
+}
+fn add_qual_for_a_read(hashmap_qual: &mut HashMap<char, HashMap<usize, f64>>, read: &SequenceRead) {
+    let q_score_vec: Vec<f64> = read
+        .get_q_score_vec()
+        .iter()
+        .map(|c| (*c as u32) as f64)
+        .collect(); // Q score
+    let p_err_vec = read.get_p_err_vec(); // P_error
+    let inner_q_map = hashmap_qual.get_mut(&'Q').expect("Q map should exist");
+    for (i, q) in q_score_vec.iter().enumerate() {
+        *inner_q_map.entry(0).or_insert(0.0) += q;
+        *inner_q_map.entry(i + 1).or_insert(0.0) += q;
+    }
+    let inner_p_map = hashmap_qual.get_mut(&'P').expect("P map should exist");
+    for (i, p) in p_err_vec.iter().enumerate() {
+        *inner_p_map.entry(0).or_insert(0.0) += p;
+        *inner_p_map.entry(i + 1).or_insert(0.0) += p;
     }
 }
 fn init_pos_hashmap_for_dna_count_hashmap() -> HashMap<usize, HashMap<DNA, usize>> {
@@ -108,8 +144,11 @@ fn get_hashmap_value(
     pos: usize,
     key: DNA,
 ) -> usize {
-    let tmp_hasmap = hashmap_dna_count.get(&pos).expect("should not happened");
-    *tmp_hasmap.get(&key).expect("should not happend")
+    let tmp_hasmap = hashmap_dna_count.get(&pos);
+    match tmp_hasmap {
+        None => 0,
+        Some(map) => *map.get(&key).expect("value should exist"),
+    }
 }
 
 /// [[[ Write stats files ]]]
@@ -117,10 +156,11 @@ fn write_fq_stat_to_file(
     path: &str,
     hashmap_dna_count: &HashMap<usize, HashMap<DNA, usize>>,
     hashmap_low_qual_dna_count: &HashMap<usize, HashMap<DNA, usize>>,
+    hashmap_qual: &HashMap<char, HashMap<usize, f64>>,
     reads_size: &[u32],
     uniq_qual_value_count: usize,
 ) -> io::Result<()> {
-    let col_name = "POS\t#bases\t%A\t%C\t%G\t%T\t%N\t%low\t%A\t%C\t%G\t%T";
+    let col_name = "POS\t#bases\t%A\t%C\t%G\t%T\t%N\tavgQ\terrQ\t%low\t%high\t%A\t%C\t%G\t%T";
     let mut output = File::create(path)?;
     writeln!(
         output,
@@ -133,7 +173,12 @@ fn write_fq_stat_to_file(
         writeln!(
             output,
             "{}",
-            get_dna_stats_string(hashmap_dna_count, hashmap_low_qual_dna_count, pos)
+            get_dna_stats_string(
+                hashmap_dna_count,
+                hashmap_low_qual_dna_count,
+                hashmap_qual,
+                pos
+            )
         )?;
     }
     Ok(())
@@ -153,27 +198,29 @@ fn get_read_len_stats_string(reads_size: &[u32]) -> String {
 fn get_dna_stats_string(
     hashmap_dna_count: &HashMap<usize, HashMap<DNA, usize>>,
     hashmap_low_qual_dna_count: &HashMap<usize, HashMap<DNA, usize>>,
+    hashmap_qual: &HashMap<char, HashMap<usize, f64>>,
     pos: usize,
 ) -> String {
-    let total: usize = hashmap_dna_count
-        .get(&pos)
-        .expect("should not happen")
-        .values()
-        .sum();
-    let low_qual_total: usize = hashmap_low_qual_dna_count
-        .get(&pos)
-        .expect("should not happen")
-        .values()
-        .sum();
+    let total: usize = calc_sum_of_dna_count_map(hashmap_dna_count, pos);
+    let low_qual_total: usize = calc_sum_of_dna_count_map(hashmap_low_qual_dna_count, pos);
+    let p_low = 100.0 * low_qual_total as f64 / total as f64;
+
+    let q_avg = calc_sum_qual_from_map(hashmap_qual, 'Q', pos) / total as f64;
+    let p_avg = calc_sum_qual_from_map(hashmap_qual, 'P', pos) / total as f64;
+    let q_err = SequenceRead::convert_p_err_to_q_score(p_avg);
+
     let out = format!(
-        "{}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}",
+        "{}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}",
         total,
         get_dna_proportion_string(hashmap_dna_count, pos, DNA::A, total),
         get_dna_proportion_string(hashmap_dna_count, pos, DNA::C, total),
         get_dna_proportion_string(hashmap_dna_count, pos, DNA::G, total),
         get_dna_proportion_string(hashmap_dna_count, pos, DNA::T, total),
         get_dna_proportion_string(hashmap_dna_count, pos, DNA::N, total),
-        100.0 * low_qual_total as f64 / total as f64,
+        q_avg,
+        q_err,
+        p_low,
+        100.0-p_low,
         get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::A, low_qual_total),
         get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::C, low_qual_total),
         get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::G, low_qual_total),
@@ -187,6 +234,17 @@ fn get_dna_stats_string(
             format!("{}\t{}", pos, out)
         }
     }
+}
+fn calc_sum_of_dna_count_map(hashmap_dna_count: &HashMap<usize, HashMap<DNA, usize>>, pos: usize) -> usize {
+    let dna_count_map = hashmap_dna_count.get(&pos);
+    match dna_count_map {
+        None => 0,
+        Some(map) => map.values().sum(),
+    }
+}
+fn calc_sum_qual_from_map(hashmap_qual: &HashMap<char, HashMap<usize, f64>>, mode: char, pos: usize) -> f64 {
+    let inner_q_map = hashmap_qual.get(&mode).expect("map should exist");
+    *inner_q_map.get(&pos).expect("pos in Q map should exist") 
 }
 fn get_dna_proportion_string(
     hashmap_dna_count: &HashMap<usize, HashMap<DNA, usize>>,
