@@ -8,8 +8,8 @@ pub struct SequenceRead {
 }
 
 impl SequenceRead {
-    /// [Construct SequenceRead] 
-    /// Create empty SequenceRead 
+    /// [Construct SequenceRead]
+    /// Create empty SequenceRead
     pub fn empty_read(ascii_base: u8) -> SequenceRead {
         SequenceRead {
             name: String::new(),
@@ -37,12 +37,16 @@ impl SequenceRead {
     }
     pub fn get_seq(&self) -> Vec<DNA> {
         self.seq
-                .chars()
-                .map(|c| DNA::convert_char_to_dna(&c))
-                .collect()
+            .chars()
+            .map(|c| DNA::convert_char_to_dna(&c))
+            .collect()
     }
-    
-    
+    pub fn get_seq_char(&self, idx: usize) -> DNA {
+        // let seq_char = self.seq.chars().nth(idx).unwrap();
+        let seq_char = self.seq.as_bytes()[idx] as char;
+        DNA::convert_char_to_dna(&seq_char)
+    }
+
     // pub fn get_name(&self) -> &str {
     //     self.name.split_whitespace().next().unwrap_or("")
     // }
