@@ -36,16 +36,7 @@ fn process_fastq_and_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -
         qual_value_hashset.extend(cur_read.get_q_score_vec());
         reads_size.push(cur_read.get_seq_length() as u32);
     }
-
-    // let pos = 1;
-    // let p_avg = hashmap_qual_sum.get(&'P').expect("ex").get(&pos).expect("ex");
-    // let q_avg = hashmap_qual_sum.get(&'Q').expect("ex").get(&pos).expect("ex");
-
-    // let total: usize = hashmap_dna_count.get(&pos).expect("ex").values().sum();
-    // println!("p err: sum: {:?} ; size: {} ; avg: {}", p_avg, total, p_avg/total as f64);
-    // println!("Q score: sum: {:?} ; size: {} ; avg: {}", q_avg, total, q_avg/total as f64);
-    // println!("P_err to Q: {}", SequenceRead::convert_p_err_to_q_score(p_avg/total as f64));
-
+    
     write_fq_stat_to_file(
         "test.txt",
         &hashmap_dna_count,
@@ -100,11 +91,7 @@ fn init_qual_stats_hashmap() -> HashMap<char, HashMap<usize, f64>> {
     ])
 }
 fn add_qual_for_a_read(hashmap_qual: &mut HashMap<char, HashMap<usize, f64>>, read: &SequenceRead) {
-    let q_score_vec: Vec<f64> = read
-        .get_q_score_vec()
-        .iter()
-        .map(|c| (*c as u32) as f64)
-        .collect(); // Q score
+    let q_score_vec: Vec<f64> = read.get_q_score_vec_f64(); // Q score
     let p_err_vec = read.get_p_err_vec(); // P_error
     let inner_q_map = hashmap_qual.get_mut(&'Q').expect("Q map should exist");
     for (i, q) in q_score_vec.iter().enumerate() {
@@ -205,26 +192,26 @@ fn get_dna_stats_string(
     let low_qual_total: usize = calc_sum_of_dna_count_map(hashmap_low_qual_dna_count, pos);
     let p_low = 100.0 * low_qual_total as f64 / total as f64;
 
-    let q_avg = calc_sum_qual_from_map(hashmap_qual, 'Q', pos) / total as f64;
-    let p_avg = calc_sum_qual_from_map(hashmap_qual, 'P', pos) / total as f64;
+    let q_avg = get_sum_qual_from_map(hashmap_qual, 'Q', pos) / total as f64;
+    let p_avg = get_sum_qual_from_map(hashmap_qual, 'P', pos) / total as f64;
     let q_err = SequenceRead::convert_p_err_to_q_score(p_avg);
 
     let out = format!(
         "{}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}\t{:.1}",
         total,
-        get_dna_proportion_string(hashmap_dna_count, pos, DNA::A, total),
-        get_dna_proportion_string(hashmap_dna_count, pos, DNA::C, total),
-        get_dna_proportion_string(hashmap_dna_count, pos, DNA::G, total),
-        get_dna_proportion_string(hashmap_dna_count, pos, DNA::T, total),
-        get_dna_proportion_string(hashmap_dna_count, pos, DNA::N, total),
+        calc_dna_proportion_string(hashmap_dna_count, pos, DNA::A, total),
+        calc_dna_proportion_string(hashmap_dna_count, pos, DNA::C, total),
+        calc_dna_proportion_string(hashmap_dna_count, pos, DNA::G, total),
+        calc_dna_proportion_string(hashmap_dna_count, pos, DNA::T, total),
+        calc_dna_proportion_string(hashmap_dna_count, pos, DNA::N, total),
         q_avg,
         q_err,
         p_low,
         100.0-p_low,
-        get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::A, low_qual_total),
-        get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::C, low_qual_total),
-        get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::G, low_qual_total),
-        get_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::T, low_qual_total),
+        calc_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::A, low_qual_total),
+        calc_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::C, low_qual_total),
+        calc_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::G, low_qual_total),
+        calc_dna_proportion_string(hashmap_low_qual_dna_count, pos, DNA::T, low_qual_total),
     );
     match pos {
         0 => {
@@ -242,11 +229,11 @@ fn calc_sum_of_dna_count_map(hashmap_dna_count: &HashMap<usize, HashMap<DNA, usi
         Some(map) => map.values().sum(),
     }
 }
-fn calc_sum_qual_from_map(hashmap_qual: &HashMap<char, HashMap<usize, f64>>, mode: char, pos: usize) -> f64 {
+fn get_sum_qual_from_map(hashmap_qual: &HashMap<char, HashMap<usize, f64>>, mode: char, pos: usize) -> f64 {
     let inner_q_map = hashmap_qual.get(&mode).expect("map should exist");
     *inner_q_map.get(&pos).expect("pos in Q map should exist") 
 }
-fn get_dna_proportion_string(
+fn calc_dna_proportion_string(
     hashmap_dna_count: &HashMap<usize, HashMap<DNA, usize>>,
     pos: usize,
     dna: DNA,

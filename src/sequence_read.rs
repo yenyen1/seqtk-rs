@@ -49,6 +49,9 @@ impl SequenceRead {
     pub fn get_q_score_vec(&self) -> &Vec<u8> {
         &self.qual
     }
+    pub fn get_q_score_vec_f64(&self) -> Vec<f64> {
+        self.qual.iter().map(|c|*c as f64).collect()
+    } 
     pub fn get_p_err_vec(&self) -> Vec<f64> {
         self.qual.iter()
             .map(|c| SequenceRead::convert_q_score_to_p_err(*c as f64))
