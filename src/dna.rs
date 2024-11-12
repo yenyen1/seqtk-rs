@@ -15,6 +15,21 @@ impl DNA {
     pub fn all_variants() -> Vec<DNA> {
         vec![DNA::A, DNA::C, DNA::G, DNA::T, DNA::N]
     }
+    pub fn all_chars() -> Vec<char> {
+        DNA::all_variants()
+            .iter()
+            .map(|d| DNA::convert_dna_to_char(d))
+            .collect()
+    }
+    pub fn get_dna(idx: usize) -> DNA {
+        match idx {
+            0 => DNA::A,
+            1 => DNA::C,
+            2 => DNA::G,
+            3 => DNA::T,
+            _ => DNA::N,
+        }
+    }
 
     pub fn convert_char_to_dna(seq_char: &char) -> DNA {
         match seq_char {
@@ -29,12 +44,13 @@ impl DNA {
             _ => DNA::N,
         }
     }
-
-    pub fn create_a_dna_count_map() -> HashMap<DNA, usize> {
-        let mut dna_hashmap = HashMap::new();
-        for c in DNA::all_variants() {
-            dna_hashmap.insert(c, 0);
+    pub fn convert_dna_to_char(dna: &DNA) -> char {
+        match *dna {
+            DNA::A => 'A',
+            DNA::C => 'C',
+            DNA::G => 'G',
+            DNA::T => 'T',
+            DNA::N => 'N',
         }
-        dna_hashmap
     }
 }
