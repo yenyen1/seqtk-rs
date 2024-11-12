@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DNA {
@@ -26,5 +28,13 @@ impl DNA {
             'g' => DNA::G,
             _ => DNA::N,
         }
+    }
+
+    pub fn create_a_dna_count_map() -> HashMap<DNA, usize> {
+        let mut dna_hashmap = HashMap::new();
+        for c in DNA::all_variants() {
+            dna_hashmap.insert(c, 0);
+        }
+        dna_hashmap
     }
 }

@@ -26,7 +26,10 @@ impl SequenceRead {
         self.seq = seq_string.to_string();
     }
     pub fn set_read_qual_str(&mut self, qual_string: &str) {
-        self.qual = qual_string.chars().map(|c| c as u8 - self.ascii_bases).collect();
+        self.qual = qual_string
+            .chars()
+            .map(|c| c as u8 - self.ascii_bases)
+            .collect();
     }
     /// Get SequenceRead data
     pub fn get_seq_length(&self) -> usize {
@@ -50,17 +53,18 @@ impl SequenceRead {
         &self.qual
     }
     pub fn get_q_score_vec_f64(&self) -> Vec<f64> {
-        self.qual.iter().map(|c|*c as f64).collect()
-    } 
+        self.qual.iter().map(|c| *c as f64).collect()
+    }
     pub fn get_p_err_vec(&self) -> Vec<f64> {
-        self.qual.iter()
+        self.qual
+            .iter()
             .map(|c| SequenceRead::convert_q_score_to_p_err(*c as f64))
             .collect()
     }
     pub fn convert_p_err_to_q_score(p_err: f64) -> f64 {
         -10.0 * p_err.log10()
     }
-    pub fn convert_q_score_to_p_err(q_score: f64) -> f64{
+    pub fn convert_q_score_to_p_err(q_score: f64) -> f64 {
         10.0f64.powf(-0.1 * q_score)
     }
 }
