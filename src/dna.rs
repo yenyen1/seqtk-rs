@@ -21,15 +21,15 @@ impl DNA {
             .map(|d| DNA::convert_dna_to_char(d))
             .collect()
     }
-    pub fn get_dna(idx: usize) -> DNA {
-        match idx {
-            0 => DNA::A,
-            1 => DNA::C,
-            2 => DNA::G,
-            3 => DNA::T,
-            _ => DNA::N,
-        }
-    }
+    // pub fn get_dna(idx: usize) -> DNA {
+    //     match idx {
+    //         0 => DNA::A,
+    //         1 => DNA::C,
+    //         2 => DNA::G,
+    //         3 => DNA::T,
+    //         _ => DNA::N,
+    //     }
+    // }
 
     pub fn convert_char_to_dna(seq_char: &char) -> DNA {
         match seq_char {
