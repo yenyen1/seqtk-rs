@@ -1,3 +1,5 @@
+use std::io;
+
 use clap::{Args, Parser, Subcommand};
 use seqtk_rs::fq_check;
 
@@ -28,7 +30,7 @@ struct FqchkArgs {
     ascii_base: Option<u8>,
 }
 
-fn main() {
+fn main() -> io::Result<()>{
     let cli = Cli::parse();
 
     // You can check for the existence of subcommands, and if found use their
@@ -40,7 +42,8 @@ fn main() {
                 &fqchk.in_fq,
                 fqchk.quality_value.unwrap_or(0),
                 fqchk.ascii_base.unwrap_or(33),
-            );
+            )?;
         }
     }
+    Ok(())
 }

@@ -1,7 +1,7 @@
 use flate2::read::MultiGzDecoder;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{self, prelude::*, BufReader};
+use std::io::{self, prelude::*, BufReader, BufRead};
 use std::path::Path;
 
 enum FxType {
@@ -48,6 +48,8 @@ impl FxIterator {
     }
 }
 
+unsafe impl Send for FxIterator {}
+
 impl Iterator for FxIterator {
     type Item = Vec<String>;
 
@@ -70,4 +72,5 @@ impl Iterator for FxIterator {
         }
         Some(fx_lines)
     }
+    
 }
