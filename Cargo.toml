@@ -13,6 +13,7 @@ chrono = "0.4.38"
 clap = { version = "4.5.20", features = ["derive"] }
 flate2 = "1.0.34"
 memmap2 = "0.9.5"
+ndarray = "0.16.1"
 rayon = "1.10.0"
 strum = "0.26.3"
 strum_macros = "0.26.4"

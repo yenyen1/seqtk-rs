@@ -30,7 +30,7 @@ struct FqchkArgs {
     ascii_base: Option<u8>,
 }
 
-fn main() -> io::Result<()>{
+fn main() -> io::Result<()> {
     let cli = Cli::parse();
 
     // You can check for the existence of subcommands, and if found use their

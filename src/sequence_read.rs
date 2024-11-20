@@ -41,6 +41,9 @@ impl SequenceRead {
             .map(|c| DNA::convert_char_to_dna(&c))
             .collect()
     }
+    pub fn get_seq_idx(&self) -> Vec<usize> {
+        self.seq.chars().map(|c| DNA::get_char_idx(&c)).collect()
+    }
     pub fn get_seq_char(&self, idx: usize) -> DNA {
         let seq_char = self.seq.as_bytes()[idx] as char;
         DNA::convert_char_to_dna(&seq_char)
@@ -53,14 +56,16 @@ impl SequenceRead {
         &self.qual
     }
     pub fn get_q_score_vec_f64(&self) -> Vec<f64> {
-        self.qual.iter().map(|c| *c as f64).collect()
+        self.qual.iter().map(|&c| c as f64).collect()
     }
     pub fn get_p_err_vec(&self) -> Vec<f64> {
-        self.qual
+        let qual_as_f64: Vec<f64> = self.qual.iter().map(|&c| c as f64).collect();
+        qual_as_f64
             .iter()
-            .map(|c| SequenceRead::convert_q_score_to_p_err(*c as f64))
+            .map(|&q| Self::convert_q_score_to_p_err(q))
             .collect()
     }
+
     pub fn convert_p_err_to_q_score(p_err: f64) -> f64 {
         -10.0 * p_err.log10()
     }

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 #[allow(clippy::upper_case_acronyms)]
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum DNA {
@@ -16,20 +14,26 @@ impl DNA {
         vec![DNA::A, DNA::C, DNA::G, DNA::T, DNA::N]
     }
     pub fn all_chars() -> Vec<char> {
-        DNA::all_variants()
-            .iter()
-            .map(|d| DNA::convert_dna_to_char(d))
-            .collect()
+        vec!['A', 'C', 'G', 'T', 'N']
     }
-    // pub fn get_dna(idx: usize) -> DNA {
-    //     match idx {
-    //         0 => DNA::A,
-    //         1 => DNA::C,
-    //         2 => DNA::G,
-    //         3 => DNA::T,
-    //         _ => DNA::N,
-    //     }
-    // }
+    pub fn get_dna_idx(dna: &DNA) -> usize {
+        match *dna {
+            DNA::A => 0,
+            DNA::C => 1,
+            DNA::G => 2,
+            DNA::T => 3,
+            DNA::N => 4,
+        }
+    }
+    pub fn get_char_idx(c: &char) -> usize {
+        match *c {
+            'A' | 'a' => 0,
+            'C' | 'c' => 1,
+            'G' | 'g' => 2,
+            'T' | 't' => 3,
+            _ => 4,
+        }
+    }
 
     pub fn convert_char_to_dna(seq_char: &char) -> DNA {
         match seq_char {

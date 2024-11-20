@@ -1,252 +1,188 @@
-use crate::dna::DNA;
+// use rayon::iter::ParallelDrainRange;
+// use rayon::prelude::*;
+use ndarray::{Array1, Array2};
+
+// use crate::dna::DNA;
 use crate::sequence_read::SequenceRead;
-use std::collections::HashMap;
+// use std::fmt::format;
 
 pub enum QualMap {
     /// [ Qual count map ]
     /// If qual threshold is zero, print out the number of qual count for each position.
     /// If qual threshold is not zero, print out the % of low/high qual for each position.
-    DNACount(HashMap<usize, HashMap<DNA, usize>>), // {Pos: {DNA: count}}
-    QualCount(HashMap<usize, HashMap<usize, usize>>), // {Qual: {Pos: count}}
-    LowQualCount(HashMap<usize,usize>), // {Pos: low_qual_count}
+    DNACount(Array2<u32>), // array2[pos][dna] = count
+    QualCount(Array2<u32>),    // array2[pos][qual] = count
+    LowQualCount(Array1<u32>), // array1[pos] = low_qual_count
 
     /// [ Low qual sum ]
     /// Calc avgQ and errQ for each position.
-    QualSum(HashMap<char, HashMap<usize, f64>>), // {ScoreType: {Pos: sum of Qual}}
+    QualSum(Array2<f64>), // array2[Pos][P/Q] = sum of Qual (P=0 ; Q=1)
 }
 
 impl QualMap {
     /// [Initial fqchk map]
-    /// Initial DNA count map {Pos: {DNA: count}}
-    pub fn init_dna_count_map() -> QualMap {
-        let map = QualMap::init_dna_count();
-        QualMap::DNACount(map)
+    /// Initial DNA count matrix array2[pos][dna] = count
+    pub fn init_dna_count_mat(max_read_length: usize) -> QualMap {
+        QualMap::DNACount(Array2::<u32>::zeros((max_read_length, 5)))
     }
     /// Initial Qual sum map {ScoreType: {Pos: sum of Qual}}
-    pub fn init_qual_sum_map() -> QualMap {
-        let map = HashMap::from([
-            ('Q', HashMap::from([(0, 0.0)])), // save sum of Q score for each pos
-            ('P', HashMap::from([(0, 0.0)])), // save sum of P_error for each pos
-        ]);
-        QualMap::QualSum(map)
+    pub fn init_qual_sum_mat(max_read_length: usize) -> QualMap {
+        QualMap::QualSum(Array2::<f64>::zeros((max_read_length, 2)))
     }
     /// Initial QualMap depend on the qual threshold.
-    pub fn init_qual_count_map(qual_threshold: u8) -> QualMap {
+    pub fn init_qual_count_map(
+        max_read_length: usize,
+        uniq_qual_size: usize,
+        qual_threshold: u8,
+    ) -> QualMap {
         match qual_threshold {
             0 => {
-                let map = QualMap::init_pos_qual_count();
-                QualMap::QualCount(map)
+                let mat = QualMap::init_pos_qual_count(max_read_length, uniq_qual_size);
+                QualMap::QualCount(mat)
             }
             _ => {
-                let map = QualMap::init_low_qual_count();
-                QualMap::LowQualCount(map)
+                let mat = QualMap::init_low_qual_count(max_read_length);
+                QualMap::LowQualCount(mat)
             }
         }
     }
-    fn init_pos_qual_count() -> HashMap<usize, HashMap<usize, usize>> {
-        HashMap::from([(0, HashMap::from([(0, 0)]))])
+    fn init_pos_qual_count(max_read_length: usize, uniq_qual_size: usize) -> Array2<u32> {
+        Array2::<u32>::zeros((max_read_length, uniq_qual_size))
     }
-    fn init_low_qual_count() -> HashMap<usize,usize> {
-        HashMap::from([(0,0)])
-    }
-    fn init_dna_count() -> HashMap<usize, HashMap<DNA, usize>> {
-        HashMap::from([(0, QualMap::init_inner_dna_count_map())]) // Use pos = 0 to restore total count
-    }
-    fn init_inner_dna_count_map() -> HashMap<DNA, usize> {
-        let mut dna_hashmap = HashMap::new();
-        for c in DNA::all_variants() {
-            dna_hashmap.insert(c, 0);
-        }
-        dna_hashmap
+    fn init_low_qual_count(max_read_length: usize) -> Array1<u32> {
+        Array1::<u32>::zeros(max_read_length)
     }
 
     /// [ Update data to map ]
     /// Update data with a sequence read
-    pub fn update_map_with_read(qual_map: &mut QualMap, read: &SequenceRead, qual_threshold: u8) {
-        match qual_map {
-            QualMap::QualSum(map) => {
-                QualMap::update_qual_sum(map, read);
+    pub fn update_map_with_read(qual_mat: &mut QualMap, read: &SequenceRead, qual_threshold: u8) {
+        match qual_mat {
+            QualMap::DNACount(mat) => {
+                QualMap::update_dna_count(mat, read);
             }
-            QualMap::QualCount(map) => {
-                QualMap::update_qual_count(map, read);
+            QualMap::QualSum(mat) => {
+                QualMap::update_qual_sum(mat, read);
             }
-            QualMap::DNACount(map) => {
-                QualMap::update_dna_count(map, read);
+            QualMap::QualCount(mat) => {
+                QualMap::update_qual_count(mat, read);
             }
-            QualMap::LowQualCount(map) => {
-                QualMap::update_low_qual_count(map, read, qual_threshold);
+            QualMap::LowQualCount(mat) => {
+                QualMap::update_low_qual_count(mat, read, qual_threshold);
             }
         }
     }
-    fn update_dna_count(
-        dna_count_map: &mut HashMap<usize, HashMap<DNA, usize>>,
-        read: &SequenceRead,
-    ) {
-        fn add_dna_count(
-            pos: usize,
-            dna_count_map: &mut HashMap<usize, HashMap<DNA, usize>>,
-            dna: &DNA,
-        ) {
-            let inner_map = dna_count_map
-                .entry(pos)
-                .or_insert_with(QualMap::init_inner_dna_count_map);
-            *inner_map.entry(dna.clone()).or_insert(0) += 1;
-        }
-        for (i, dna) in read.get_seq().as_slice().iter().enumerate() {
-            add_dna_count(0, dna_count_map, dna);
-            add_dna_count(i + 1, dna_count_map, dna);
+    fn update_dna_count(dna_count_mat: &mut Array2<u32>, read: &SequenceRead) {
+        for (pos, &idx) in read.get_seq_idx().as_slice().iter().enumerate() {
+            if let Some(value) = dna_count_mat.get_mut((pos, idx)) {
+                *value += 1;
+            }
+            // dna_count_mat[(pos,idx)] += 1;
         }
     }
-    fn update_qual_sum(qual_map: &mut HashMap<char, HashMap<usize, f64>>, read: &SequenceRead) {
+    fn update_qual_sum(qual_map: &mut Array2<f64>, read: &SequenceRead) {
         fn add(
-            qual_map: &mut HashMap<char, HashMap<usize, f64>>,
-            qual_vec: &Vec<f64>,
-            qual_type: char,
+            qual_map: &mut Array2<f64>,
+            qual_vec: &[f64],
+            type_idx: usize, // P=0; Q=1
         ) {
-            let inner_map = qual_map.get_mut(&qual_type).expect("0 map should exist");
-            for (i, q) in qual_vec.iter().enumerate() {
-                *inner_map.entry(0).or_insert(0.0) += q;
-                *inner_map.entry(i + 1).or_insert(0.0) += q;
+            for (i, &v) in qual_vec.iter().enumerate() {
+                if let Some(value) = qual_map.get_mut((type_idx, i)) {
+                    *value += v;
+                }
             }
         }
-        let q_score_vec = read.get_q_score_vec_f64(); // Q score
-        add(qual_map, &q_score_vec, 'Q');
         let p_err_vec = read.get_p_err_vec(); // P_error
-        add(qual_map, &p_err_vec, 'P');
+        add(qual_map, &p_err_vec, 0);
+        let q_score_vec = read.get_q_score_vec_f64(); // Q score
+        add(qual_map, &q_score_vec, 1);
     }
-    fn update_low_qual_count(qual_map: &mut HashMap<usize, usize>, read: &SequenceRead, qual_threshold: u8) {
-        for (i, q) in read.get_q_score_vec().iter().enumerate() {
-            if *q < qual_threshold {
-                *qual_map.entry(0).or_insert(0) += 1;
-                *qual_map.entry(i+1).or_insert(0) += 1;
+    fn update_low_qual_count(qual_mat: &mut Array1<u32>, read: &SequenceRead, qual_threshold: u8) {
+        for (i, &q) in read.get_q_score_vec().as_slice().iter().enumerate() {
+            if q < qual_threshold {
+                if let Some(value) = qual_mat.get_mut(i) {
+                    *value += 1;
+                }
             }
-        }   
+        }
     }
-    fn update_qual_count(
-        qual_map: &mut HashMap<usize, HashMap<usize, usize>>,
-        read: &SequenceRead,
-    ) {
+    fn update_qual_count(qual_map: &mut Array2<u32>, read: &SequenceRead) {
         // need to add
     }
 
     /// [Stats output]
+    pub fn get_output(
+        dna_count_map: &QualMap,
+        qual_sum_map: &QualMap,
+        // qual_count_map: &QualMap,
+        pos: usize,
+    ) -> String {
+        let (pos_total, output_dna_stats) =
+            QualMap::get_pos_total_and_dna_proportion(dna_count_map, pos);
+        let qual_sum_stats = QualMap::get_qual_sum_stats(qual_sum_map, pos, pos_total);
+        // let qual_count_stats = QualMap::get_qual_count_stats(qual_count_map,pos, pos_total);
+        let mut out = String::new();
+        out.push_str(&output_dna_stats);
+        out.push_str(&qual_sum_stats);
+        // out.push_str(&qual_count_stats);
+        out
+    }
     pub fn get_qual_count_stats(qual_map: &QualMap, pos: usize, total: f64) -> String {
         match qual_map {
-            QualMap::LowQualCount(map) => {
-                QualMap::get_low_qual_stats(map, pos, total)
-            }
-            QualMap::QualCount(_) => {
-                String::new()
-            }
-            _ => panic!("1 should not happen")
+            QualMap::LowQualCount(map) => QualMap::get_low_qual_stats(map, pos, total),
+            QualMap::QualCount(_) => String::new(),
+            _ => panic!("1 should not happen"),
         }
     }
     /// Get \t{%Low}\t{%High} String from low_qual_count_map
-    fn get_low_qual_stats(low_qual_count_map: &HashMap<usize, usize>, pos: usize, total: f64) -> String {
-        let low_qual_total = low_qual_count_map.get(&pos);
-        let p_low = match low_qual_total {
-            Some(&v) => 100.0 * v as f64 / total,
-            None => 0.0,
-        };
-        let out = format!(
-            "\t{:.1}\t{:.1}",
-            p_low,
-            100.0 - p_low,
-        );
-        out
+    fn get_low_qual_stats(low_qual_count_mat: &Array1<u32>, pos: usize, total: f64) -> String {
+        let low_qual_total = low_qual_count_mat[pos];
+        let p_low = 100.0 * low_qual_total as f64 / total;
+        format!("\t{:.1}\t{:.1}", p_low, 100.0 - p_low)
     }
-    pub fn get_dna_count_stats(dna_count_map: &QualMap, pos: usize, total: f64) -> String {
-        let count_prop = QualMap::get_count_proportion_stats(dna_count_map, pos, total);
-        match dna_count_map {
-            QualMap::DNACount(_) => {
-                match pos {
-                    0 => format!("Total\t{:.0}{}",total,count_prop),
-                    _ => format!("{}\t{:.0}{}",pos,total,count_prop),
-                }
+    /// Get Total\t{#Base}\t{%A}\t{%C}\t{%G}\t{%T}\t{%N} String from dna_count_mat
+    pub fn get_total_and_dna_proportion(dna_count_mat: &QualMap) -> (f64, String) {
+        match dna_count_mat {
+            QualMap::DNACount(mat) => {
+                let total_dna_counts = mat.sum_axis(ndarray::Axis(0)); // Sum of count for A/C/G/T/N (across rows/pos)
+                let total = total_dna_counts.sum() as f64;
+                let prop_str: String = total_dna_counts
+                    .iter()
+                    .map(|&c| format!("\t{:.1}", 100.0 * c as f64 / total))
+                    .collect();
+                (total, format!("Total\t{:.0}{}", total, prop_str))
             }
-            QualMap::QualCount(_) => {
-                format!("{}",count_prop)
+            _ => panic!("1 should not happen"),
+        }
+    }
+    /// Get {Pos}\t{#Base}\t{%A}\t{%C}\t{%G}\t{%T}\t{%N} String from dna_count_mat
+    pub fn get_pos_total_and_dna_proportion(dna_count_mat: &QualMap, pos: usize) -> (f64, String) {
+        match dna_count_mat {
+            QualMap::DNACount(mat) => {
+                let pos_total: u32 = mat.slice(ndarray::s![pos, ..]).iter().sum(); // Sum of counts at position
+                let total_f64: f64 = pos_total as f64;
+                let prop_str: String = mat
+                    .slice(ndarray::s![pos, ..])
+                    .iter()
+                    .map(|&c| format!("\t{:.1}", 100.0 * c as f64 / total_f64))
+                    .collect();
+                (total_f64, format!("{}\t{}{}", pos + 1, pos_total, prop_str))
             }
-            _ => panic!("2 should not happen")
+            _ => panic!("2 should not happen"),
         }
     }
     /// Get {avgQ}\t{Qerr} String from qual_sum_map
     pub fn get_qual_sum_stats(qual_sum_map: &QualMap, pos: usize, total: f64) -> String {
-        fn get_sum_qual_from_map(qual_sum_map: &QualMap, mode: char, pos: usize) -> f64 {
-            match qual_sum_map {
-                QualMap::QualSum(map) => {
-                    let inner_map = map.get(&mode).expect("map should exist");
-                    *inner_map.get(&pos).expect("pos in Q map should exist")
-                }
-                _ => {
-                    panic!("3 should not happen");
-                } // should not happen
+        match qual_sum_map {
+            QualMap::QualSum(mat) => {
+                // P=0; Q=1
+                let q_avg = mat.get((pos, 1)).unwrap_or(&0.0) / total;
+                let p_avg = mat.get((pos, 0)).unwrap_or(&0.0) / total;
+                let q_err = SequenceRead::convert_p_err_to_q_score(p_avg);
+                format!("\t{:.1}\t{:.1}", q_avg, q_err)
             }
-        }
-        let q_avg = get_sum_qual_from_map(qual_sum_map, 'Q', pos) / total;
-        let p_avg = get_sum_qual_from_map(qual_sum_map, 'P', pos) / total;
-        let q_err = SequenceRead::convert_p_err_to_q_score(p_avg);
-        format!("\t{:.1}\t{:.1}", q_avg, q_err)
-    }
-    /// {%A}\t{%C}\t{%G}\t{%T}\t{%N} String from dna_count_map
-    /// 
-    fn get_count_proportion_stats(qual_map: &QualMap, pos: usize, total: f64) -> String {
-        match qual_map {
-            QualMap::DNACount(map) => {
-                fn get_prop(inner_map: Option<&HashMap<DNA, usize>>, dna: DNA, total: f64) -> f64 {
-                    match inner_map {
-                        None => 0.0,
-                        Some(map) => {
-                            let count = map.get(&dna).expect("4 should not happen");
-                            100.0 * (*count as f64) / total
-                        }
-                    }
-                }
-                let inner_map = map.get(&pos);
-                let mut out = String::new();
-                for dna in DNA::all_variants() {
-                    // GET A,C,G,T,N by order
-                    let tmp_str = get_prop(inner_map, dna, total);
-                    out.push_str(&format!("\t{:.1}", tmp_str));
-                }
-                out
+            _ => {
+                panic!("3 should not happen")
             }
-            QualMap::QualCount(map) => {
-                let out = String::new();
-                out
-            }
-            _ => panic!("5 should not happen"),
-        }
-    }
-
-    /// [Other function]
-    /// Calculate the sum of count from map
-    pub fn sum_map_count(qual_map: &QualMap, pos: usize) -> usize {
-        match qual_map {
-            QualMap::DNACount(map) => {
-                let inner_map = map.get(&pos);
-                match inner_map {
-                    None => 0,
-                    Some(map) => map.values().sum(),
-                }
-            }
-            QualMap::QualCount(map) => {
-                let inner_map = map.get(&pos);
-                match inner_map {
-                    None => 0,
-                    Some(map) => map.values().sum(),
-                }
-            }
-            _ => panic!("6 should not happen"),
-        }
-    }
-    pub fn get_pos_length(qual_map: &QualMap) -> usize {
-        match qual_map {
-            QualMap::DNACount(map) => {
-                let length = map.keys().len();
-                length
-            }
-            _ => panic!("7 should not happen"),
         }
     }
 }

@@ -28,7 +28,7 @@ where
         return f64::NAN;
     }
     let sum: f64 = arr.iter().copied().map(Into::into).sum();
-    
+
     sum / (len_a as f64)
 }
 
