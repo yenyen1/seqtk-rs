@@ -1,13 +1,11 @@
-// use rayon::iter::ParallelBridge;
 use crate::dna::DNA;
 use crate::fx_iterator::FxIterator;
 use crate::qual_map::QualMap;
 use crate::sequence_read::SequenceRead;
 use crate::stats;
+
 use ndarray::{Array2, Axis};
 use rayon::prelude::*;
-
-// use std::fmt::{Debug, Display};
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
 use std::io::{self, prelude::*, BufWriter};
@@ -22,7 +20,7 @@ pub fn fq_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -> io::Resul
     }
 
     let (max_len, qual_idx_map) =
-        parse_fq_and_write_length_and_qual_stats(fq_path, out_path, qual_threshold)?;
+        parse_fq_and_write_length_and_qual_stats(fq_path, out_path, qual_threshold, ascii_bases)?;
     process_fastq_and_check(
         fq_path,
         out_path,
@@ -30,8 +28,7 @@ pub fn fq_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -> io::Resul
         ascii_bases,
         max_len,
         qual_idx_map,
-    )
-    .expect("Failed to process fastq file.");
+    )?;
 
     println!(
         "Process time: {:?}",
@@ -46,57 +43,59 @@ fn process_fastq_and_check(
     qual_threshold: u8,
     ascii_bases: u8,
     max_length: usize,
-    qual_set: HashMap<u8, usize>,
+    qual_map: HashMap<u8, usize>,
 ) -> io::Result<()> {
-    let mut dna_count_mat = init_dna_count_mat(max_length);
-    let mut qual_sum_map = init_qual_sum_mat(max_length);
-    // let mut qual_count_map = QualMap::init_qual_count_map(qual_threshold);
+    let mut dna_count_arr = Array2::<f64>::zeros((max_length, 5));
+    let mut qual_sum_arr = Array2::<f64>::zeros((max_length, 2));
+    let mut qual_count_arr =
+        QualMap::init_qual_count_arr(max_length, qual_map.len(), qual_threshold);
 
     let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
     for fx_lines in fq_iter {
-        let cur_read = create_sequenceread(fx_lines, ascii_bases)?;
+        let cur_read = SequenceRead::create_read(fx_lines[1].trim(), fx_lines[3].trim(),ascii_bases);
 
-        update_dna_count(&mut dna_count_mat, &cur_read); // qual_value=0: count dna without threshold
-        update_qual_sum(&mut qual_sum_map, &cur_read);
-        // QualMap::update_map_with_read(&mut qual_count_map, &cur_read, qual_threshold);
+        update_dna_count(&mut dna_count_arr, &cur_read); // qual_value=0: count dna without threshold
+        update_qual_sum(&mut qual_sum_arr, &cur_read);
+        qual_count_arr.update_qual_count_mat(&cur_read, &qual_map, qual_threshold);
     }
 
     write_fq_stat_to_file(
         out_path,
-        &dna_count_mat,
-        // &qual_count_map,
-        &qual_sum_map,
-        max_length as usize,
+        &dna_count_arr,
+        &qual_count_arr,
+        &qual_sum_arr,
+        max_length,
     )?;
 
     Ok(())
-}
-
-/// [[[ Create SequenceRead from fastq read ]]]
-fn create_sequenceread(fx_lines: Vec<String>, ascii_bases: u8) -> Result<SequenceRead, io::Error> {
-    let mut cur_read = SequenceRead::empty_read(ascii_bases);
-    cur_read.set_read_name(fx_lines[0].trim());
-    cur_read.set_read_seq(fx_lines[1].trim());
-    cur_read.set_read_qual_str(fx_lines[3].trim());
-    Ok(cur_read)
 }
 
 /// [[[ Write stats files ]]]
 fn write_fq_stat_to_file(
     path: &str,
     dna_count_mat: &Array2<f64>,
-    // qual_count_map: &QualMap,
+    qual_count_mat: &QualMap,
     qual_sum_map: &Array2<f64>,
     max_length: usize,
 ) -> io::Result<()> {
     let mut writer = append_bufwriter(path)?;
     let (total, dna_count_str) = get_total_and_dna_proportion(dna_count_mat);
     let qual_sum_str = get_total_qual_sum_stats(qual_sum_map, total);
-    writeln!(writer, "{}{}", dna_count_str, qual_sum_str)?;
+    let qual_count_str = qual_count_mat.get_total_qual_count_stats(total);
+    writeln!(
+        writer,
+        "{}{}{}",
+        dna_count_str, qual_sum_str, qual_count_str
+    )?;
     for pos in 0..max_length {
         let (total, dna_count_str) = get_pos_total_and_dna_proportion(dna_count_mat, pos);
         let qual_sum_str = get_qual_sum_stats(qual_sum_map, pos, total);
-        writeln!(writer, "{}{}", dna_count_str, qual_sum_str)?;
+        let qual_count_str = qual_count_mat.get_qual_count_stats(pos, total);
+        writeln!(
+            writer,
+            "{}{}{}",
+            dna_count_str, qual_sum_str, qual_count_str
+        )?;
     }
     Ok(())
 }
@@ -117,22 +116,12 @@ fn format_duration(duration: u64) -> String {
 
     formatted_time
 }
-
-fn new_bufwriter(out_path: &str) -> io::Result<(BufWriter<File>)> {
-    let file = File::create(out_path)?;
-    let writer = BufWriter::new(file);
-    Ok(writer)
-}
-
-fn append_bufwriter(out_path: &str) -> io::Result<(BufWriter<File>)> {
+fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
     let file = OpenOptions::new()
         .create(true) // Create the file if it doesn't exist
         .append(true) // Open the file in append mode (no truncation)
-        .write(true) // We want to write to the file
         .open(out_path)?; // Open the file at the provided path
-
     let writer = BufWriter::new(file);
-
     Ok(writer)
 }
 
@@ -140,33 +129,36 @@ fn parse_fq_and_write_length_and_qual_stats(
     fq_path: &str,
     out_path: &str,
     qual_threshold: u8,
+    ascii_bases: u8
 ) -> Result<(usize, HashMap<u8, usize>), io::Error> {
     fn get_read_len_stats_str(sorted_reads_size: &[u32]) -> String {
         format!(
             "[Length] {} reads; mean={:2} ; min={} ; med={} ; max={} ; N50={}\n",
             sorted_reads_size.len(),
-            stats::average(&sorted_reads_size),
+            stats::average(sorted_reads_size),
             sorted_reads_size.first().unwrap(),
-            stats::median_sorted_arr(&sorted_reads_size),
+            stats::median_sorted_arr(sorted_reads_size),
             sorted_reads_size.last().unwrap(),
-            stats::n50_sorted_arr(&sorted_reads_size).unwrap()
+            stats::n50_sorted_arr(sorted_reads_size).unwrap()
         )
-    }
-    fn get_uniq_qual_num_str(qual_count: usize) -> String {
-        format!("[Quality value] {} distinct quality values.\n", qual_count)
     }
     fn get_colname_str(
         qual_threshold: u8,
         qual_set: HashSet<char>,
+        ascii_bases: u8,
     ) -> (HashMap<u8, usize>, String) {
-        let ordered_dna: String = DNA::all_chars()
-            .iter()
-            .map(|d| format!("\t%{}", d))
-            .collect();
+        let ordered_dna: String = DNA::all_chars().iter().map(|d| format!("\t%{}", d)).fold(
+            String::new(),
+            |mut acc, s| {
+                acc.push_str(&s);
+                acc
+            },
+        );
+
         let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", ordered_dna);
         let mut qual_idx_map: HashMap<u8, usize> = HashMap::new();
         if qual_threshold == 0 {
-            let mut qual_vec: Vec<u8> = qual_set.into_iter().map(|c| c as u8).collect();
+            let mut qual_vec: Vec<u8> = qual_set.into_iter().map(|c| c as u8 - ascii_bases).collect();
             qual_vec.sort();
             let mut ordered_qual = String::new();
             for (idx, &qual) in qual_vec.iter().enumerate() {
@@ -189,27 +181,20 @@ fn parse_fq_and_write_length_and_qual_stats(
     }
     reads_size.par_sort_unstable();
     let mut out_string = get_read_len_stats_str(&reads_size);
-    out_string.push_str(&get_uniq_qual_num_str(qual_set.len()));
+    out_string.push_str(&format!("[Quality value] {} distinct quality values.\n", qual_set.len()));
 
-    let (qual_idx_map, colname) = get_colname_str(qual_threshold, qual_set);
+    let (qual_idx_map, colname) = get_colname_str(qual_threshold, qual_set, ascii_bases);
     out_string.push_str(&colname);
 
-    let mut buf_writer: BufWriter<File> = new_bufwriter(out_path)?;
+
+    let file = File::create(out_path)?;
+    let mut buf_writer = BufWriter::new(file);
     write!(&mut buf_writer, "{}", out_string)?;
 
     Ok((*reads_size.last().unwrap() as usize, qual_idx_map))
 }
-
-/// Initial DNA count matrix array2[pos][dna] = count
-fn init_dna_count_mat(max_read_length: usize) -> Array2<f64> {
-    Array2::<f64>::zeros((max_read_length, 5))
-}
-/// Initial Qual sum mat array2[Pos][P/Q] = sum of Qual (P=0 ; Q=1)
-fn init_qual_sum_mat(max_read_length: usize) -> Array2<f64> {
-    Array2::<f64>::zeros((max_read_length, 2))
-}
 fn update_dna_count(dna_count_mat: &mut Array2<f64>, read: &SequenceRead) {
-    for (pos, &idx) in read.get_seq_idx().as_slice().iter().enumerate() {
+    for (pos, &idx) in read.get_seq_idx().iter().enumerate() {
         if let Some(value) = dna_count_mat.get_mut((pos, idx)) {
             *value += 1.0;
         }
@@ -243,9 +228,12 @@ fn get_total_and_dna_proportion(dna_count_mat: &Array2<f64>) -> (f64, String) {
     let prop_str: String = total_dna_counts
         .iter()
         .map(|&c| format!("\t{:.1}", 100.0 * c / total))
-        .collect();
+        .fold(String::new(), |mut acc, s| {
+            acc.push_str(&s);
+            acc
+        });
 
-    (total as f64, format!("Total\t{:.0}{}", total, prop_str))
+    (total, format!("Total\t{:.0}{}", total, prop_str))
 }
 /// Get {Pos}\t{#Base}\t{%A}\t{%C}\t{%G}\t{%T}\t{%N} String from dna_count_mat
 fn get_pos_total_and_dna_proportion(dna_count_mat: &Array2<f64>, upos: usize) -> (f64, String) {
@@ -253,8 +241,11 @@ fn get_pos_total_and_dna_proportion(dna_count_mat: &Array2<f64>, upos: usize) ->
     let prop_str: String = dna_count_mat
         .slice(ndarray::s![upos, ..])
         .iter()
-        .map(|&c| format!("\t{:.1}", 100.0 * c as f64 / pos_total))
-        .collect();
+        .map(|&c| format!("\t{:.1}", 100.0 * c / pos_total))
+        .fold(String::new(), |mut acc, s| {
+            acc.push_str(&s);
+            acc
+        });
     (
         pos_total,
         format!("{}\t{}{}", upos + 1, pos_total, prop_str),

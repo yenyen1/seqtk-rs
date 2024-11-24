@@ -1,7 +1,7 @@
 use flate2::read::MultiGzDecoder;
 use std::ffi::OsStr;
 use std::fs::File;
-use std::io::{self, prelude::*, BufRead, BufReader};
+use std::io::{self, BufRead, BufReader};
 use std::path::Path;
 
 enum FxType {
