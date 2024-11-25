@@ -4,11 +4,13 @@ use crate::qual_map::QualMap;
 use crate::sequence_read::SequenceRead;
 use crate::stats;
 
+use flate2::read::GzDecoder;
 use ndarray::{Array2, Axis};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::io::{self, prelude::*, BufWriter};
+use std::io::{self, prelude::*, BufRead, BufReader, BufWriter};
+use std::path::Path;
 use std::time::Instant;
 
 pub fn fq_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -> io::Result<()> {
@@ -50,9 +52,10 @@ fn process_fastq_and_check(
     let mut qual_count_arr =
         QualMap::init_qual_count_arr(max_length, qual_map.len(), qual_threshold);
 
-    let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
+    let fq_iter = new_fx_iterator(fq_path, 4)?;
     for fx_lines in fq_iter {
-        let cur_read = SequenceRead::create_read(fx_lines[1].trim(), fx_lines[3].trim(),ascii_bases);
+        let cur_read =
+            SequenceRead::create_read(fx_lines[1].trim(), fx_lines[3].trim(), ascii_bases);
 
         update_dna_count(&mut dna_count_arr, &cur_read); // qual_value=0: count dna without threshold
         update_qual_sum(&mut qual_sum_arr, &cur_read);
@@ -124,12 +127,27 @@ fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
     let writer = BufWriter::new(file);
     Ok(writer)
 }
+fn new_fx_iterator(
+    file_path: &str,
+    lines_per_chunk: usize,
+) -> io::Result<FxIterator<Box<dyn BufRead>>> {
+    let file_extension = Path::new(file_path).extension().and_then(|s| s.to_str());
+    let file = File::open(file_path)?;
+    let reader: Box<dyn BufRead> = match file_extension {
+        Some("gz") => {
+            let gz_decoder = GzDecoder::new(file);
+            Box::new(BufReader::new(gz_decoder))
+        }
+        _ => Box::new(BufReader::new(file)),
+    };
+    Ok(FxIterator::new(reader, lines_per_chunk))
+}
 
 fn parse_fq_and_write_length_and_qual_stats(
     fq_path: &str,
     out_path: &str,
     qual_threshold: u8,
-    ascii_bases: u8
+    ascii_bases: u8,
 ) -> Result<(usize, HashMap<u8, usize>), io::Error> {
     fn get_read_len_stats_str(sorted_reads_size: &[u32]) -> String {
         format!(
@@ -158,7 +176,10 @@ fn parse_fq_and_write_length_and_qual_stats(
         let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", ordered_dna);
         let mut qual_idx_map: HashMap<u8, usize> = HashMap::new();
         if qual_threshold == 0 {
-            let mut qual_vec: Vec<u8> = qual_set.into_iter().map(|c| c as u8 - ascii_bases).collect();
+            let mut qual_vec: Vec<u8> = qual_set
+                .into_iter()
+                .map(|c| c as u8 - ascii_bases)
+                .collect();
             qual_vec.sort();
             let mut ordered_qual = String::new();
             for (idx, &qual) in qual_vec.iter().enumerate() {
@@ -172,20 +193,25 @@ fn parse_fq_and_write_length_and_qual_stats(
         colname.push('\n');
         (qual_idx_map, colname)
     }
-    let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
+    // let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
+
     let mut reads_size = Vec::<u32>::new();
     let mut qual_set: HashSet<char> = HashSet::new();
+    let fq_iter = new_fx_iterator(fq_path, 4)?;
     for lines in fq_iter {
         reads_size.push(lines[1].trim().len() as u32);
         qual_set.extend(lines[3].trim().chars());
     }
+
     reads_size.par_sort_unstable();
     let mut out_string = get_read_len_stats_str(&reads_size);
-    out_string.push_str(&format!("[Quality value] {} distinct quality values.\n", qual_set.len()));
+    out_string.push_str(&format!(
+        "[Quality value] {} distinct quality values.\n",
+        qual_set.len()
+    ));
 
     let (qual_idx_map, colname) = get_colname_str(qual_threshold, qual_set, ascii_bases);
     out_string.push_str(&colname);
-
 
     let file = File::create(out_path)?;
     let mut buf_writer = BufWriter::new(file);

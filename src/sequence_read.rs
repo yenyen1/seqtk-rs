@@ -14,7 +14,11 @@ impl SequenceRead {
         SequenceRead {
             // name: String::new(),
             seq: seq_str.to_string(),
-            qual: qual_str.as_bytes().iter().map(|&byte| byte.wrapping_sub(ascii_base)).collect(),
+            qual: qual_str
+                .as_bytes()
+                .iter()
+                .map(|&byte| byte.wrapping_sub(ascii_base))
+                .collect(),
             // ascii_bases: ascii_base,
         }
     }

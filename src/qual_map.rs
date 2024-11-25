@@ -111,7 +111,7 @@ impl QualMap {
     }
     /// Get \t{%Low}\t{%High} String from low_qual_count_mat
     fn get_total_low_qual_stats(low_qual_mat: &Array1<f64>, total: f64) -> String {
-        let p_low = 100.0 *low_qual_mat.sum() / total;
+        let p_low = 100.0 * low_qual_mat.sum() / total;
         format!("\t{:.1}\t{:.1}", p_low, 100.0 - p_low)
     }
 }
