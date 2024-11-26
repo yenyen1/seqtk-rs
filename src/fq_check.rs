@@ -29,7 +29,7 @@ pub fn fq_check(fq_path: &str, qual_threshold: u8, ascii_bases: u8) -> io::Resul
         qual_threshold,
         ascii_bases,
         max_len,
-        qual_idx_map,
+        &qual_idx_map,
     )?;
 
     println!(
@@ -45,7 +45,7 @@ fn process_fastq_and_check(
     qual_threshold: u8,
     ascii_bases: u8,
     max_length: usize,
-    qual_map: HashMap<u8, usize>,
+    qual_map: &HashMap<u8, usize>,
 ) -> io::Result<()> {
     let mut dna_count_arr = Array2::<f64>::zeros((max_length, 5));
     let mut qual_sum_arr = Array2::<f64>::zeros((max_length, 2));
@@ -57,7 +57,7 @@ fn process_fastq_and_check(
         let cur_read =
             SequenceRead::create_read(fx_lines[1].trim(), fx_lines[3].trim(), ascii_bases);
 
-        update_dna_count(&mut dna_count_arr, &cur_read); // qual_value=0: count dna without threshold
+        update_dna_count(&mut dna_count_arr, &cur_read);
         update_qual_sum(&mut qual_sum_arr, &cur_read);
         qual_count_arr.update_qual_count_mat(&cur_read, &qual_map, qual_threshold);
     }
@@ -162,23 +162,15 @@ fn parse_fq_and_write_length_and_qual_stats(
     }
     fn get_colname_str(
         qual_threshold: u8,
-        qual_set: HashSet<char>,
+        qual_set: HashSet<u8>,
         ascii_bases: u8,
     ) -> (HashMap<u8, usize>, String) {
-        let ordered_dna: String = DNA::all_chars().iter().map(|d| format!("\t%{}", d)).fold(
-            String::new(),
-            |mut acc, s| {
-                acc.push_str(&s);
-                acc
-            },
-        );
-
-        let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", ordered_dna);
+        let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", DNA::ordered_dna_str());
         let mut qual_idx_map: HashMap<u8, usize> = HashMap::new();
         if qual_threshold == 0 {
             let mut qual_vec: Vec<u8> = qual_set
                 .into_iter()
-                .map(|c| c as u8 - ascii_bases)
+                .map(|c| c - ascii_bases)
                 .collect();
             qual_vec.sort();
             let mut ordered_qual = String::new();
@@ -193,18 +185,17 @@ fn parse_fq_and_write_length_and_qual_stats(
         colname.push('\n');
         (qual_idx_map, colname)
     }
-    // let fq_iter = FxIterator::new(fq_path, "fastq").unwrap();
-
     let mut reads_size = Vec::<u32>::new();
-    let mut qual_set: HashSet<char> = HashSet::new();
+    let mut qual_set: HashSet<u8> = HashSet::new();
     let fq_iter = new_fx_iterator(fq_path, 4)?;
     for lines in fq_iter {
         reads_size.push(lines[1].trim().len() as u32);
-        qual_set.extend(lines[3].trim().chars());
+        qual_set.extend(lines[3].trim().as_bytes());
     }
 
     reads_size.par_sort_unstable();
     let mut out_string = get_read_len_stats_str(&reads_size);
+
     out_string.push_str(&format!(
         "[Quality value] {} distinct quality values.\n",
         qual_set.len()
@@ -220,28 +211,21 @@ fn parse_fq_and_write_length_and_qual_stats(
     Ok((*reads_size.last().unwrap() as usize, qual_idx_map))
 }
 fn update_dna_count(dna_count_mat: &mut Array2<f64>, read: &SequenceRead) {
-    for (pos, &idx) in read.get_seq_idx().iter().enumerate() {
-        if let Some(value) = dna_count_mat.get_mut((pos, idx)) {
-            *value += 1.0;
-        }
-    }
+    read.get_seq()
+        .as_bytes()
+        .iter()
+        .enumerate()
+        .for_each(|(pos, &c)| {
+            let char_idx = DNA::get_char_idx(c as char);
+            dna_count_mat[(pos, char_idx)] += 1.0;
+        });
 }
 fn update_qual_sum(qual_mat: &mut Array2<f64>, read: &SequenceRead) {
-    fn add(
-        qual_mat: &mut Array2<f64>,
-        qual_vec: &[f64],
-        type_idx: usize, // P=0; Q=1
-    ) {
-        for (i, &v) in qual_vec.iter().enumerate() {
-            if let Some(value) = qual_mat.get_mut((i, type_idx)) {
-                *value += v;
-            }
-        }
+    for (i, &q) in read.get_q_score_vec().iter().enumerate() {
+        let q_f64 = q as f64;
+        qual_mat[(i, 0)] += SequenceRead::convert_q_score_to_p_err(q_f64);
+        qual_mat[(i, 1)] += q_f64;
     }
-    let p_err_vec = read.get_p_err_vec(); // P_error
-    add(qual_mat, &p_err_vec, 0);
-    let q_score_vec = read.get_q_score_vec_f64(); // Q score
-    add(qual_mat, &q_score_vec, 1);
 }
 /// Get Total\t{#Base}\t{%A}\t{%C}\t{%G}\t{%T}\t{%N} String from dna_count_mat
 fn get_total_and_dna_proportion(dna_count_mat: &Array2<f64>) -> (f64, String) {
@@ -279,16 +263,20 @@ fn get_pos_total_and_dna_proportion(dna_count_mat: &Array2<f64>, upos: usize) ->
 }
 /// Get {avgQ}\t{Qerr} String from qual_sum_map
 fn get_qual_sum_stats(qual_sum_mat: &Array2<f64>, upos: usize, total: f64) -> String {
-    let q_avg = qual_sum_mat.get((upos, 1)).unwrap_or(&0.0) / total;
-    let p_avg = qual_sum_mat.get((upos, 0)).unwrap_or(&0.0) / total;
+    let p_avg = qual_sum_mat[(upos, 0)] / total;
+    let q_avg = qual_sum_mat[(upos, 1)] / total;
+    // let q_avg = qual_sum_mat.get((upos, 1)).unwrap_or(&0.0) / total;
+    // let p_avg = qual_sum_mat.get((upos, 0)).unwrap_or(&0.0) / total;
     let q_err = SequenceRead::convert_p_err_to_q_score(p_avg);
     format!("\t{:.1}\t{:.1}", q_avg, q_err)
 }
 /// Get {avgQ}\t{Qerr} String from qual_sum_map
 fn get_total_qual_sum_stats(qual_sum_mat: &Array2<f64>, total: f64) -> String {
     let total_qual_sum = qual_sum_mat.sum_axis(Axis(0)); // Sum of Q/P f across rows
-    let q_avg = total_qual_sum.get(1).unwrap_or(&0.0) / total;
-    let p_avg = total_qual_sum.get(0).unwrap_or(&0.0) / total;
+    let p_avg = total_qual_sum[0] / total;
+    let q_avg = total_qual_sum[1] / total;
+    // let q_avg = total_qual_sum.get(1).unwrap_or(&0.0) / total;
+    // let p_avg = total_qual_sum.get(0).unwrap_or(&0.0) / total;
     let q_err: f64 = SequenceRead::convert_p_err_to_q_score(p_avg);
     format!("\t{:.1}\t{:.1}", q_avg, q_err)
 }
