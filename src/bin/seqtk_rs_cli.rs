@@ -19,6 +19,8 @@ enum Commands {
 struct FqchkArgs {
     /// input fastq path
     in_fq: String,
+    /// output tsv path
+    out: String,
 
     #[arg(short, long)]
     /// quality value (default: 0)
@@ -28,16 +30,15 @@ struct FqchkArgs {
     ascii_base: Option<u8>,
 }
 
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
-    // You can check for the existence of subcommands, and if found use their
-    // matches just as you would the top level cmd
     match &cli.command {
         Commands::Fqchk(fqchk) => {
-            // println!("'myapp add' was used, name is: {:?}", fqchk.in_fq);
             fq_check::fq_check(
                 &fqchk.in_fq,
+                &fqchk.out,
                 fqchk.quality_value.unwrap_or(0),
                 fqchk.ascii_base.unwrap_or(33),
             )?;

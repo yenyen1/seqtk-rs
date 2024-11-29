@@ -14,21 +14,24 @@ use std::time::Instant;
 
 pub fn fq_check(
     fq_path: &str,
+    out_path: &str,
     qual_threshold: u8,
     ascii_bases: u8,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let out_path = "test.txt";
     let start = Instant::now();
 
     if ascii_bases != 33u8 && ascii_bases != 64u8 {
         println!("Warning: Input ascii base {} is not 33 or 64.", ascii_bases);
     }
+    let mut out_path: String = out_path.to_string();
+    out_path.push_str(".tsv");
 
     let (max_len, qual_idx_map) =
-        parse_fq_and_write_length_and_qual_stats(fq_path, out_path, qual_threshold, ascii_bases)?;
+        parse_fq_and_write_length_and_qual_stats(fq_path, &out_path, qual_threshold, ascii_bases)?;
+
     process_fastq_and_check(
         fq_path,
-        out_path,
+        &out_path,
         qual_threshold,
         ascii_bases,
         max_len,
