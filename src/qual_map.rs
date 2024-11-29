@@ -1,5 +1,4 @@
-use crate::sequence_read::SequenceRead;
-
+use bio::io::fastq::Record;
 use ndarray::{Array1, Array2, Axis};
 use rayon::prelude::*;
 use std::collections::HashMap;
@@ -35,19 +34,19 @@ impl QualMap {
     /// Update data with a sequence read
     pub fn update_qual_count_mat(
         &mut self,
-        read: &SequenceRead,
+        read: &Record,
         qual_idx_map: &HashMap<u8, usize>,
         qual_threshold: u8,
     ) {
         match self {
             QualMap::QualCount(mat) => {
-                for (i, q) in read.get_q_score_vec().iter().enumerate() {
+                for (i, q) in read.qual().iter().enumerate() {
                     let qual_idx = qual_idx_map.get(q).expect("qual_map-066 should not happen");
                     mat[(i, *qual_idx)] += 1.0;
                 }
             }
             QualMap::LowQualCount(mat) => {
-                for (i, &q) in read.get_q_score_vec().iter().enumerate() {
+                for (i, &q) in read.qual().iter().enumerate() {
                     if q < qual_threshold {
                         mat[i] += 1.0;
                     }
@@ -62,7 +61,7 @@ impl QualMap {
                 // Get \t{%Low}\t{%High} String from low_qual_count_mat
                 let p_low = 100.0 * mat[pos] / total;
                 format!("\t{:.1}\t{:.1}", p_low, 100.0 - p_low)
-            },
+            }
             QualMap::QualCount(mat) => {
                 // Get \t{%Q1}\t{%Q2}...
                 let mut out = String::new();
@@ -70,7 +69,7 @@ impl QualMap {
                     out.push_str(&format!("\t{:.1}", 100.0 * q / total));
                 }
                 out
-            },
+            }
         }
     }
     pub fn get_total_qual_count_stats(&self, total: f64) -> String {
@@ -87,12 +86,12 @@ impl QualMap {
                     out.push_str(&format!("\t{:.1}", 100.0 * q / total));
                 }
                 out
-            },
+            }
             QualMap::LowQualCount(mat) => {
                 // Get \t{%Low}\t{%High} String from low_qual_count_mat
                 let p_low = 100.0 * mat.sum() / total;
                 format!("\t{:.1}\t{:.1}", p_low, 100.0 - p_low)
-            },
+            }
         }
     }
 }
