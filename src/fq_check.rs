@@ -1,16 +1,14 @@
 use crate::dna;
 use crate::qual_map::QualMap;
 use crate::stats;
+use crate::utils;
 
-use bio::io::fastq::{self, Record};
-use flate2::read::GzDecoder;
+use bio::io::fastq::Record;
 use ndarray::{Array2, Axis};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::fs::{File, OpenOptions};
-use std::io::{self, prelude::*, BufRead, BufReader, BufWriter};
-use std::path::Path;
-use std::time::Instant;
+use std::fs::File;
+use std::io::{self, BufWriter, Write};
 
 pub fn fq_check(
     fq_path: &str,
@@ -18,8 +16,6 @@ pub fn fq_check(
     qual_threshold: u8,
     ascii_bases: u8,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let start = Instant::now();
-
     if ascii_bases != 33u8 && ascii_bases != 64u8 {
         println!("Warning: Input ascii base {} is not 33 or 64.", ascii_bases);
     }
@@ -37,11 +33,6 @@ pub fn fq_check(
         max_len,
         &qual_idx_map,
     )?;
-
-    println!(
-        "Process time: {:?}",
-        format_duration(start.elapsed().as_secs())
-    );
     Ok(())
 }
 
@@ -58,7 +49,7 @@ fn process_fastq_and_check(
     let mut qual_count_arr =
         QualMap::init_qual_count_arr(max_length, qual_map.len(), qual_threshold);
 
-    let fq_iter = new_fx_iterator(fq_path)?;
+    let fq_iter = utils::new_fx_iterator(fq_path)?;
     for record in fq_iter.records() {
         let cur_read = record.unwrap();
 
@@ -86,7 +77,7 @@ fn write_fq_stat_to_file(
     qual_sum_map: &Array2<f64>,
     max_length: usize,
 ) -> io::Result<()> {
-    let mut writer = append_bufwriter(path)?;
+    let mut writer = utils::append_bufwriter(path)?;
     let (total, dna_count_str) = get_total_and_dna_proportion(dna_count_mat);
     let qual_sum_str = get_total_qual_sum_stats(qual_sum_map, total);
     let qual_count_str = qual_count_mat.get_total_qual_count_stats(total);
@@ -107,47 +98,6 @@ fn write_fq_stat_to_file(
     }
     Ok(())
 }
-
-fn format_duration(duration: u64) -> String {
-    let seconds = duration;
-    let minutes = seconds / 60;
-    let hours = minutes / 60;
-    let days = hours / 24;
-
-    let formatted_time = format!(
-        "{}-{:02}:{:02}:{:02}",
-        days,
-        hours % 24,
-        minutes % 60,
-        seconds % 60
-    );
-
-    formatted_time
-}
-fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
-    let file = OpenOptions::new()
-        .create(true) // Create the file if it doesn't exist
-        .append(true) // Open the file in append mode (no truncation)
-        .open(out_path)?; // Open the file at the provided path
-    let writer = BufWriter::new(file);
-    Ok(writer)
-}
-fn new_fx_iterator(
-    file_path: &str,
-    // lines_per_chunk: usize,
-) -> io::Result<fastq::Reader<BufReader<Box<dyn BufRead>>>> {
-    let file_extension = Path::new(file_path).extension().and_then(|s| s.to_str());
-    let file = File::open(file_path)?;
-    let reader: Box<dyn BufRead> = match file_extension {
-        Some("gz") => {
-            let gz_decoder = GzDecoder::new(file);
-            Box::new(BufReader::new(gz_decoder))
-        }
-        _ => Box::new(BufReader::new(file)),
-    };
-    Ok(fastq::Reader::new(reader))
-}
-
 fn parse_fq_and_write_length_and_qual_stats(
     fq_path: &str,
     out_path: &str,
@@ -173,10 +123,7 @@ fn parse_fq_and_write_length_and_qual_stats(
         let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", dna::ordered_dna_str());
         let mut qual_idx_map: HashMap<u8, usize> = HashMap::new();
         if qual_threshold == 0 {
-            let mut qual_vec: Vec<u8> = qual_set
-                .into_iter()
-                // .map(|c| c - ascii_bases)
-                .collect();
+            let mut qual_vec: Vec<u8> = qual_set.into_iter().collect();
             qual_vec.sort();
             let mut ordered_qual = String::new();
             for (idx, &qual) in qual_vec.iter().enumerate() {
@@ -192,7 +139,7 @@ fn parse_fq_and_write_length_and_qual_stats(
     }
     let mut reads_size = Vec::<u32>::new();
     let mut qual_set: HashSet<u8> = HashSet::new();
-    let fq_iter = new_fx_iterator(fq_path)?;
+    let fq_iter = utils::new_fx_iterator(fq_path)?;
     for record in fq_iter.records() {
         let cur_read = record.unwrap();
         reads_size.push(cur_read.seq().len() as u32);
