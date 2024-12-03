@@ -1,5 +1,5 @@
-use clap::{Args, Parser, Subcommand};
-use seqtk_rs::fq_check;
+use clap::Parser;
+use seqtk_rs::{fq_check, seq, sub_cli};
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -7,68 +7,30 @@ use std::time::Instant;
 #[command(propagate_version = true)]
 struct Cli {
     #[command(subcommand)]
-    command: Commands,
-}
-
-#[derive(Subcommand)]
-enum Commands {
-    /// fastq QC summary
-    Fqchk(FqchkArgs),
-    /// Seq
-    Seq(SeqArgs),
-}
-
-#[derive(Args)]
-struct FqchkArgs {
-    /// input fastq path
-    in_fq: String,
-    /// output tsv path
-    #[arg(short, long)]
-    out: Option<String>,
-
-    #[arg(short, long)]
-    /// quality value [default: 0]
-    quality_value: Option<u8>,
-
-    #[arg(short, long)]
-    /// ascii value [default: 33]
-    ascii_base: Option<u8>,
-}
-
-#[derive(Args)]
-struct SeqArgs {
-    #[arg(long)]
-    /// input fastq path or fasta path
-    in_fq: Option<String>,
-    /// out path
-    #[arg(long)]
-    out: Option<String>,
-
-    #[arg(long)]
-    /// mask bases that quality lower than q_low [default: 0]
-    q_low: Option<u8>,
-    /// mask bases that quality higher than q_high [default: 255]
-    #[arg(long)]
-    q_high: Option<u8>,
-    #[arg(long)]
-    /// mask bases converted to CHAR [default: convert to lowercase]
-    mask_char: Option<char>,
+    pub command: sub_cli::Commands,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
-    let cli = Cli::parse();
+    let cli = sub_cli::Cli::parse();
+    let out = "test".to_string();
 
     match &cli.command {
-        Commands::Fqchk(fqchk) => {
+        sub_cli::Commands::Fqchk(fqchk) => {
             fq_check::fq_check(
                 &fqchk.in_fq,
-                &fqchk.out.clone().unwrap_or("test".to_string()),
+                &fqchk.out.clone().unwrap_or(out),
                 fqchk.quality_value.unwrap_or(0),
                 fqchk.ascii_base.unwrap_or(33),
             )?;
         }
-        Commands::Seq(seq) => {}
+        sub_cli::Commands::Seq(seq) => {
+            seq::parse_seq(
+                &seq.in_fx,
+                &seq.out.clone().unwrap_or(out),
+                seq.mini_seq_length.unwrap_or(0),
+            );
+        }
     }
     println!(
         "Process time: {:?}",
