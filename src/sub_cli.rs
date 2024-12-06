@@ -42,13 +42,13 @@ pub struct SeqArgs {
 
     #[arg(long)]
     /// mask bases that quality lower than q_low [default: 0]
-    q_low: Option<u8>,
+    pub q_low: Option<u8>,
     #[arg(long)]
     /// mask bases that quality higher than q_high [default: 255]
-    q_high: Option<u8>,
+    pub q_high: Option<u8>,
     #[arg(long)]
     /// mask bases converted to CHAR [default: convert to lowercase]
-    mask_char: Option<char>,
+    pub mask_char: Option<char>,
     #[arg(long)]
     /// number of residues per line; 0 for 2^32-1 [default: 0]
     n_residues: Option<u32>,
@@ -99,10 +99,10 @@ pub struct SeqArgs {
     shift_quality_33: bool,
     #[arg(short = 'U', long)]
     /// convert all bases to uppercases
-    uppercases: bool,
+    pub uppercases: bool,
     #[arg(short = 'x', long)]
     /// convert all lowercases to -n
-    lowercases: bool,
+    pub lowercases: bool,
     #[arg(short = 'S', long)]
     /// strip of white spaces in sequences
     strip_whitespace: bool,

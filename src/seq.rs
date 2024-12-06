@@ -7,7 +7,7 @@ use rand::SeedableRng;
 use bio::io::fastq::{self, Record};
 // use std::io::{self, BufWriter, Write};
 
-pub struct FilterRule {
+pub struct FilterParas {
     mini_seq_length: usize,
     drop_ambigous_seq: bool,
     output_odd_reads: bool,
@@ -15,7 +15,7 @@ pub struct FilterRule {
     random_seed: u64,
     sample_fraction: Option<f64>,
 }
-impl FilterRule {
+impl FilterParas {
     pub fn new(
         mini_seq_length: usize,
         drop_ambigous_seq: bool,
@@ -28,7 +28,7 @@ impl FilterRule {
             !(output_even_reads && output_odd_reads),
             "Should not use --output-even-reads and --output-odd-reads option together."
         );
-        FilterRule {
+        FilterParas {
             mini_seq_length,
             drop_ambigous_seq,
             output_odd_reads,
@@ -39,33 +39,59 @@ impl FilterRule {
     }
 }
 
-pub struct ParsedSeqArgs {
+pub struct MaskParas<'a> {
     q_low: u8,
     q_high: u8,
     mask_char: Option<char>,
-    mask_regions: Option<String>,
+    mask_regions: &'a Option<String>,
+    mask_complement_region: bool,
+    uppercases: bool,
+    lowercases: bool,
+}
+impl<'a> MaskParas<'a> {
+    pub fn new(
+        q_low: u8,
+        q_high: u8,
+        mask_char: Option<char>,
+        mask_regions: &'a Option<String>,
+        mask_complement_region: bool,
+        uppercases: bool,
+        lowercases: bool,
+    ) -> Self {
+        assert!(
+            !(mask_complement_region && mask_regions.is_none()),
+            "--mask-complment-region should effective with --mask-regions."
+        );
+        MaskParas {
+            q_low,
+            q_high,
+            mask_char,
+            mask_regions,
+            mask_complement_region,
+            uppercases,
+            lowercases,
+        }
+    }
+}
+pub struct ParsedSeqArgs {
     quality_shift: u8,
     ///ascii_bases
     shift_quality_33: bool,
-    uppercases: bool,
-    lowercases: bool,
 
     n_residues: Option<u32>,
-
-    fake_fastq_quality: bool,
-    mask_complement_region: bool,
     reverse_complement: bool,
     both_complement: bool,
     output_fasta: bool,
+    fake_fastq_quality: bool,
     trim_header: bool,
-
     strip_whitespace: bool,
 }
 
 pub fn parse_seq(
     fx_path: &String,
     out_path: &String,
-    filter_rule: &FilterRule,
+    filter_rule: &FilterParas,
+    mask_paras: &MaskParas,
 ) -> Result<(), std::io::Error> {
     match filter_rule.sample_fraction {
         Some(frac) => {
@@ -109,7 +135,7 @@ fn modify_record(read: &Record) {
     //add
 }
 
-fn filter_read(i: usize, read: &Record, filter_rule: &FilterRule) -> bool {
+fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
     let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
         if filter_rule.output_even_reads {
             i % 2 == 0

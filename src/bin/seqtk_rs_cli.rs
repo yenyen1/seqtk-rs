@@ -25,11 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             )?;
         }
         sub_cli::Commands::Seq(seq) => {
-            assert!(
-                !(seq.mask_complement_region && seq.mask_regions.is_none()),
-                "--mask-complment-region should effective with --mask-regions."
-            );
-            let filter_rule = seq::FilterRule::new(
+            let filter_rule = seq::FilterParas::new(
                 seq.mini_seq_length.unwrap_or(0),
                 seq.drop_ambigous_seq,
                 seq.output_even_reads,
@@ -37,7 +33,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.random_seed.unwrap_or(11),
                 seq.sample_fraction,
             );
-            seq::parse_seq(&seq.in_fx, &seq.out.clone().unwrap_or(out), &filter_rule)?;
+            let mask_paras = seq::MaskParas::new(
+                seq.q_low.unwrap_or(0),
+                seq.q_high.unwrap_or(255),
+                seq.mask_char,
+                &seq.mask_regions,
+                seq.mask_complement_region,
+                seq.uppercases,
+                seq.lowercases,
+            );
+            seq::parse_seq(
+                &seq.in_fx,
+                &seq.out.clone().unwrap_or(out),
+                &filter_rule,
+                &mask_paras,
+            )?;
         }
     }
     println!(
