@@ -15,6 +15,7 @@ clap = { version = "4.5.20", features = ["derive"] }
 flate2 = "1.0.34"
 memmap2 = "0.9.5"
 ndarray = {version = "0.16.1", features = ["rayon"]}
+rand = "0.8.5"
 rayon = "1.10.0"
 strum = "0.26.3"
 strum_macros = "0.26.4"

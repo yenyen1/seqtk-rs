@@ -26,22 +26,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         sub_cli::Commands::Seq(seq) => {
             assert!(
-                !(seq.output_even_reads && seq.output_odd_reads),
-                "Should not use --output-even-reads and --output-odd-reads option together."
-            );
-
-            assert!(
                 !(seq.mask_complement_region && seq.mask_regions.is_none()),
                 "--mask-complment-region should effective with --mask-regions."
             );
-            seq::parse_seq(
-                &seq.in_fx,
-                &seq.out.clone().unwrap_or(out),
+            let filter_rule = seq::FilterRule::new(
                 seq.mini_seq_length.unwrap_or(0),
                 seq.drop_ambigous_seq,
                 seq.output_even_reads,
                 seq.output_odd_reads,
-            )?;
+                seq.random_seed.unwrap_or(11),
+                seq.sample_fraction,
+            );
+            seq::parse_seq(&seq.in_fx, &seq.out.clone().unwrap_or(out), &filter_rule)?;
         }
     }
     println!(
