@@ -54,7 +54,7 @@ pub struct SeqArgs {
     n_residues: Option<u32>,
     #[arg(long)]
     /// quality shift: ASCII-INT gives base quality [default: 33]
-    quality_shift: Option<u8>,
+    pub quality_shift: Option<u8>,
     #[arg(short = 's', long)]
     /// random seed (effective with --sample-fraction / -f) [default: 11]
     pub random_seed: Option<u64>,
@@ -102,7 +102,7 @@ pub struct SeqArgs {
     pub uppercases: bool,
     #[arg(short = 'x', long)]
     /// convert all lowercases to -n
-    pub lowercases: bool,
+    pub lowercases_to_char: bool,
     #[arg(short = 'S', long)]
     /// strip of white spaces in sequences
     strip_whitespace: bool,

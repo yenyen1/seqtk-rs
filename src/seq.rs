@@ -26,7 +26,7 @@ impl FilterParas {
     ) -> Self {
         assert!(
             !(output_even_reads && output_odd_reads),
-            "Should not use --output-even-reads and --output-odd-reads option together."
+            "Should not use --output-even-reads and --output-odd-reads options together."
         );
         FilterParas {
             mini_seq_length,
@@ -46,7 +46,7 @@ pub struct MaskParas<'a> {
     mask_regions: &'a Option<String>,
     mask_complement_region: bool,
     uppercases: bool,
-    lowercases: bool,
+    lowercases_to_char: bool,
 }
 impl<'a> MaskParas<'a> {
     pub fn new(
@@ -56,11 +56,19 @@ impl<'a> MaskParas<'a> {
         mask_regions: &'a Option<String>,
         mask_complement_region: bool,
         uppercases: bool,
-        lowercases: bool,
+        lowercases_to_char: bool,
     ) -> Self {
         assert!(
             !(mask_complement_region && mask_regions.is_none()),
             "--mask-complment-region should effective with --mask-regions."
+        );
+        assert!(
+            !(uppercases && (lowercases_to_char || mask_char.is_some())),
+            "Should not use --uppercases with --lowercases_to_char or mask-char options together."
+        );
+        assert!(
+            !(lowercases_to_char && mask_char.is_none()),
+            "--lowercases-to-char should effective with --mask-char."
         );
         MaskParas {
             q_low,
@@ -69,13 +77,12 @@ impl<'a> MaskParas<'a> {
             mask_regions,
             mask_complement_region,
             uppercases,
-            lowercases,
+            lowercases_to_char,
         }
     }
 }
-pub struct ParsedSeqArgs {
-    quality_shift: u8,
-    ///ascii_bases
+pub struct OutputArgs {
+    quality_shift: u8, // ascii_bases
     shift_quality_33: bool,
 
     n_residues: Option<u32>,
@@ -101,12 +108,8 @@ pub fn parse_seq(
                 let read = record.unwrap();
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
-                    println!(
-                        "[i={}] read length {} > {}",
-                        i + 1,
-                        read.seq().len(),
-                        filter_rule.mini_seq_length
-                    );
+                    let seq = modify_seq(&read, &mask_paras);
+                    println!("[i={}] {:?}", i, String::from_utf8(seq));
                     // break
                 }
             }
@@ -117,12 +120,8 @@ pub fn parse_seq(
                 let read = record.unwrap();
                 let filtered_read = filter_read(i + 1, &read, filter_rule);
                 if filtered_read {
-                    println!(
-                        "[i={}] read length {} > {}",
-                        i + 1,
-                        read.seq().len(),
-                        filter_rule.mini_seq_length
-                    );
+                    let seq = modify_seq(&read, &mask_paras);
+                    println!("[i={}] {:?}", i, String::from_utf8(seq));
                     // break
                 }
             }
@@ -131,8 +130,42 @@ pub fn parse_seq(
     Ok(())
 }
 
-fn modify_record(read: &Record) {
-    //add
+fn modify_seq(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {
+    let mut seq = if mask_paras.uppercases {
+        read.seq().to_ascii_uppercase()
+    } else {
+        read.seq().to_vec()
+    };
+    match mask_paras.mask_char {
+        Some(c) => {
+            // masked bases to char.
+            let c_u8 = c as u8;
+            if mask_paras.lowercases_to_char {
+                for (&qual, ch) in read.qual().iter().zip(seq.iter_mut()) {
+                    if qual < mask_paras.q_low || mask_paras.q_high < qual {
+                        *ch = c_u8; // mask bases by q_low and q_high
+                    } else if ch.is_ascii_lowercase() {
+                        *ch = c_u8; // convert lowercase to char
+                    }
+                }
+            } else {
+                for (&qual, ch) in read.qual().iter().zip(seq.iter_mut()) {
+                    if qual < mask_paras.q_low || mask_paras.q_high < qual {
+                        *ch = c_u8; // mask bases by q_low and q_high
+                    }
+                }
+            }
+        }
+        None => {
+            // masked bases to lowercases.
+            for (&qual, ch) in read.qual().iter().zip(seq.iter_mut()) {
+                if qual < mask_paras.q_low || mask_paras.q_high < qual {
+                    *ch = ch.to_ascii_lowercase(); // mask bases by q_low and q_high
+                }
+            }
+        }
+    }
+    seq
 }
 
 fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {

@@ -33,14 +33,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.random_seed.unwrap_or(11),
                 seq.sample_fraction,
             );
+            let ascii_bases = seq.quality_shift.unwrap_or(33);
             let mask_paras = seq::MaskParas::new(
-                seq.q_low.unwrap_or(0),
-                seq.q_high.unwrap_or(255),
+                seq.q_low.unwrap_or(0) + ascii_bases,
+                seq.q_high.unwrap_or(222) + ascii_bases,
                 seq.mask_char,
                 &seq.mask_regions,
                 seq.mask_complement_region,
                 seq.uppercases,
-                seq.lowercases,
+                seq.lowercases_to_char,
             );
             seq::parse_seq(
                 &seq.in_fx,
