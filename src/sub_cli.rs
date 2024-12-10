@@ -41,7 +41,7 @@ pub struct SeqArgs {
     pub out: Option<String>,
 
     #[arg(long)]
-    /// ascii bases for quality shift [default: 33]
+    /// ascii bases [default: 33]
     pub ascii_bases: Option<u8>,
     #[arg(long)]
     /// mask bases that quality lower than q_low [default: 0]
@@ -54,9 +54,9 @@ pub struct SeqArgs {
     pub mask_char: Option<char>,
     #[arg(long)]
     /// number of residues per line; 0 for 2^32-1 [default: 0]
-    n_residues: Option<u32>,
+    pub n_residues: Option<u32>,
     #[arg(short = 's', long)]
-    /// random seed (effective with --sample-fraction / -f) [default: 11]
+    /// random seed (effective with --sample-fraction / -f) [default: 4]
     pub random_seed: Option<u64>,
     #[arg(short = 'f', long)]
     /// sample FLOAT fraction of sequences [default: 1.]
@@ -68,23 +68,23 @@ pub struct SeqArgs {
     /// drop sequences with length shorter than INT [default: 0]
     pub mini_seq_length: Option<usize>,
     #[arg(long)]
-    /// fake FASTQ quality []
-    fake_fastq_quality: bool,
+    /// output fake FASTQ quality char
+    pub fake_fastq_quality: Option<char>,
     #[arg(long)]
     /// mask complement region (effective with --mask-regions / -M)
     pub mask_complement_region: bool,
     #[arg(long)]
     /// reverse complement
-    reverse_complement: bool,
+    pub reverse_complement: bool,
     #[arg(long)]
     /// output both forward and reverse complement
-    both_complement: bool,
+    pub both_complement: bool,
     #[arg(long)]
     /// force FASTA output (discard quality)
-    output_fasta: bool,
+    pub output_fasta: bool,
     #[arg(long)]
     /// drop comments at the header lines
-    trim_header: bool,
+    pub trim_header: bool,
     #[arg(long)]
     /// drop sequences containing ambiguous bases
     pub drop_ambigous_seq: bool,
@@ -95,8 +95,8 @@ pub struct SeqArgs {
     /// output the 2n reads only
     pub output_even_reads: bool,
     #[arg(long)]
-    /// output the quality values with shift quality 33.
-    pub output_qual_33: bool,
+    /// output by quality that shift with value 'Q'.
+    pub output_shift_qual: Option<u8>,
     #[arg(short = 'U', long)]
     /// convert all bases to uppercases
     pub uppercases: bool,
@@ -105,5 +105,5 @@ pub struct SeqArgs {
     pub lowercases_to_char: bool,
     #[arg(short = 'S', long)]
     /// strip of white spaces in sequences
-    strip_whitespace: bool,
+    pub strip_whitespace: bool,
 }

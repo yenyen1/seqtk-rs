@@ -42,13 +42,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.q_high.unwrap_or(222) + ascii_bases,
                 &seq.mask_regions,
                 seq.mask_complement_region,
-                
+            );
+            let out_paras = seq::OutArgs::new(
+                seq.output_shift_qual.unwrap_or(0), // 'Q' + 33
+                seq.fake_fastq_quality,
+                seq.output_fasta,
+                seq.n_residues,
+                seq.reverse_complement,
+                seq.both_complement,
+                seq.trim_header,
+                seq.strip_whitespace,
             );
             seq::parse_seq(
                 &seq.in_fx,
                 &seq.out.clone().unwrap_or(out),
                 &filter_rule,
                 &mask_paras,
+                &out_paras,
             )?;
         }
     }

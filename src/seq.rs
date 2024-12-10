@@ -1,20 +1,19 @@
-
 use crate::utils;
 use anyhow;
+use bio::io::bed;
+use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-
-use bio::io::fastq::Record;
-use bio::io::bed;
 // use std::io::{self, BufWriter, Write};
 
-pub struct FilterParas { // fastq
-    mini_seq_length: usize, // fq
-    drop_ambigous_seq: bool, // fq
-    output_odd_reads: bool, // fq
-    output_even_reads: bool, // fq
-    random_seed: u64, // fq
+pub struct FilterParas {
+    // fastq
+    mini_seq_length: usize,       // fq
+    drop_ambigous_seq: bool,      // fq
+    output_odd_reads: bool,       // fq
+    output_even_reads: bool,      // fq
+    random_seed: u64,             // fq
     sample_fraction: Option<f64>, // fq
 }
 impl FilterParas {
@@ -40,15 +39,14 @@ impl FilterParas {
         }
     }
 }
-
 pub struct MaskParas<'a> {
     mask_char: Option<char>,
     uppercases: bool,
     lowercases_to_char: bool,
-    q_low: u8, // fq
-    q_high: u8, // fq
+    q_low: u8,                        // fq
+    q_high: u8,                       // fq
     mask_regions: &'a Option<String>, // fa
-    mask_complement_region: bool, // fa
+    mask_complement_region: bool,     // fa
 }
 impl<'a> MaskParas<'a> {
     pub fn new(
@@ -59,7 +57,6 @@ impl<'a> MaskParas<'a> {
         q_high: u8,
         mask_regions: &'a Option<String>,
         mask_complement_region: bool,
-        
     ) -> Self {
         assert!(
             !(mask_complement_region && mask_regions.is_none()),
@@ -67,7 +64,7 @@ impl<'a> MaskParas<'a> {
         );
         assert!(
             !(uppercases && (lowercases_to_char || mask_char.is_some())),
-            "Should not use --uppercases with --lowercases_to_char or mask-char options together."
+            "Should not use --uppercases with --lowercases_to_char or --mask-char together."
         );
         assert!(
             !(lowercases_to_char && mask_char.is_none()),
@@ -84,17 +81,42 @@ impl<'a> MaskParas<'a> {
         }
     }
 }
-pub struct OutputArgs {
-    acssi_bases: u8, // fq
-    shift_quality_33: bool, // fq Q + 33
-
+pub struct OutArgs {
+    output_qual_shift: u8, // fq Q
+    fake_fastq_quality: Option<char>,
+    output_fasta: bool, //
     n_residues: Option<u32>,
-    reverse_complement: bool,
-    both_complement: bool,
-    output_fasta: bool,
-    fake_fastq_quality: bool,
+    reverse_complement: bool, // fa | fq
+    both_complement: bool,    // fa | fq
     trim_header: bool,
     strip_whitespace: bool,
+}
+impl OutArgs {
+    pub fn new(
+        output_qual_shift: u8, // fq Q
+        fake_fastq_quality: Option<char>,
+        output_fasta: bool,
+        n_residues: Option<u32>,
+        reverse_complement: bool,
+        both_complement: bool,
+        trim_header: bool,
+        strip_whitespace: bool,
+    ) -> Self {
+        assert!(
+            !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
+            "Should not use --output-fasta with --output-qual-shift or --fake-fastq-quality."
+        );
+        OutArgs {
+            output_qual_shift,
+            fake_fastq_quality,
+            output_fasta,
+            n_residues,
+            reverse_complement,
+            both_complement,
+            trim_header,
+            strip_whitespace,
+        }
+    }
 }
 
 pub fn parse_seq(
@@ -102,6 +124,7 @@ pub fn parse_seq(
     out_path: &String,
     filter_rule: &FilterParas,
     mask_paras: &MaskParas,
+    out_paras: &OutArgs,
 ) -> Result<(), std::io::Error> {
     match filter_rule.sample_fraction {
         Some(frac) => {
@@ -112,6 +135,11 @@ pub fn parse_seq(
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
                     let seq = modify_seq(&read, &mask_paras);
+                    if out_paras.output_fasta {
+                        // print fx
+                    } else {
+                        // print fx
+                    }
                     println!("[i={}] {:?}", i, String::from_utf8(seq));
                     // break
                 }
@@ -132,9 +160,10 @@ pub fn parse_seq(
     }
     Ok(())
 }
-
+// fn modify_qual(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {}
 fn modify_seq(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {
-    let mut seq = if mask_paras.uppercases { // convert to uppercases
+    let mut seq = if mask_paras.uppercases {
+        // convert to uppercases
         read.seq().to_ascii_uppercase()
     } else {
         read.seq().to_vec()
@@ -178,12 +207,11 @@ fn masked_by_bed(seq: &[u8], mask_paras: &MaskParas) -> Result<(), anyhow::Error
                 let bed = record.unwrap();
                 bed.start();
             }
-        },
-        None => {},
+        }
+        None => {}
     }
     Ok(())
 }
-
 fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
     let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
         if filter_rule.output_even_reads {
