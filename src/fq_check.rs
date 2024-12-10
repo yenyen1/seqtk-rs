@@ -120,7 +120,7 @@ fn parse_fq_and_write_length_and_qual_stats(
         qual_set: HashSet<u8>,
         ascii_bases: u8,
     ) -> (HashMap<u8, usize>, String) {
-        let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", dna::ordered_dna_str());
+        let mut colname = format!("POS\t#bases{}\tavgQ\terrQ", dna::ACGTN_TAB);
         let mut qual_idx_map: HashMap<u8, usize> = HashMap::new();
         if qual_threshold == 0 {
             let mut qual_vec: Vec<u8> = qual_set.into_iter().collect();
@@ -164,7 +164,7 @@ fn parse_fq_and_write_length_and_qual_stats(
 }
 fn update_dna_count(dna_count_mat: &mut Array2<f64>, read: &Record) {
     read.seq().iter().enumerate().for_each(|(pos, &c)| {
-        let char_idx = dna::get_char_idx(c as char);
+        let char_idx = dna::get_dna_idx_from_u8(c);
         dna_count_mat[(pos, char_idx)] += 1.0;
     });
 }

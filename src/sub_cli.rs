@@ -41,6 +41,9 @@ pub struct SeqArgs {
     pub out: Option<String>,
 
     #[arg(long)]
+    /// ascii bases for quality shift [default: 33]
+    pub ascii_bases: Option<u8>,
+    #[arg(long)]
     /// mask bases that quality lower than q_low [default: 0]
     pub q_low: Option<u8>,
     #[arg(long)]
@@ -52,9 +55,6 @@ pub struct SeqArgs {
     #[arg(long)]
     /// number of residues per line; 0 for 2^32-1 [default: 0]
     n_residues: Option<u32>,
-    #[arg(long)]
-    /// quality shift: ASCII-INT gives base quality [default: 33]
-    pub quality_shift: Option<u8>,
     #[arg(short = 's', long)]
     /// random seed (effective with --sample-fraction / -f) [default: 11]
     pub random_seed: Option<u64>,
@@ -95,8 +95,8 @@ pub struct SeqArgs {
     /// output the 2n reads only
     pub output_even_reads: bool,
     #[arg(long)]
-    /// shift quality by '(-Q) - 33'
-    shift_quality_33: bool,
+    /// output the quality values with shift quality 33.
+    pub output_qual_33: bool,
     #[arg(short = 'U', long)]
     /// convert all bases to uppercases
     pub uppercases: bool,
