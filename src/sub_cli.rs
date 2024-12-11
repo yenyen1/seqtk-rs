@@ -36,9 +36,6 @@ pub struct SeqArgs {
     #[arg(short = 'i', long)]
     /// input fastq or fasta path
     pub in_fx: String,
-    /// out path
-    #[arg(short = 'o', long)]
-    pub out: Option<String>,
 
     #[arg(long)]
     /// ascii bases [default: 33]

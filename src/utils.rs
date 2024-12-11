@@ -1,7 +1,7 @@
-use bio::io::fastq;
+use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
 use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, BufWriter};
+use std::io::{self, BufRead, BufReader, BufWriter, Stdout};
 use std::path::Path;
 
 pub fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
@@ -23,4 +23,35 @@ pub fn new_fx_iterator(file_path: &str) -> io::Result<fastq::Reader<BufReader<Bo
         _ => Box::new(BufReader::new(file)),
     };
     Ok(fastq::Reader::new(reader))
+}
+pub enum FxWriter {
+    Fasta(fasta::Writer<Stdout>),
+    Fastq(fastq::Writer<Stdout>),
+}
+impl FxWriter {
+    pub fn new(is_fasta: bool) -> FxWriter {
+        let std_out = io::stdout();
+        if is_fasta {
+            FxWriter::Fasta(fasta::Writer::new(std_out))
+        } else {
+            FxWriter::Fastq(fastq::Writer::new(std_out))
+        }
+    }
+    pub fn write(
+        &mut self,
+        id: &str,
+        seq: &[u8],
+        desc: Option<&str>,
+        qual: &[u8],
+    ) -> io::Result<()> {
+        match self {
+            FxWriter::Fasta(ref mut out) => {
+                out.write(id, desc, seq)?;
+            }
+            FxWriter::Fastq(ref mut out) => {
+                out.write(id, desc, seq, qual)?;
+            }
+        }
+        Ok(())
+    }
 }

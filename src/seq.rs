@@ -1,11 +1,10 @@
-use crate::utils;
+use crate::utils::{self, FxWriter};
 use anyhow;
 use bio::io::bed;
 use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-// use std::io::{self, BufWriter, Write};
 
 pub struct FilterParas {
     // fastq
@@ -118,10 +117,8 @@ impl OutArgs {
         }
     }
 }
-
 pub fn parse_seq(
     fx_path: &String,
-    out_path: &String,
     filter_rule: &FilterParas,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
@@ -130,30 +127,26 @@ pub fn parse_seq(
         Some(frac) => {
             let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
             let fx_iter = utils::new_fx_iterator(fx_path)?;
+            let mut fx_writer = FxWriter::new(out_paras.output_fasta);
+
             for (i, record) in fx_iter.records().enumerate() {
                 let read = record.unwrap();
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
                     let seq = modify_seq(&read, &mask_paras);
-                    if out_paras.output_fasta {
-                        // print fx
-                    } else {
-                        // print fx
-                    }
-                    println!("[i={}] {:?}", i, String::from_utf8(seq));
-                    // break
+                    fx_writer.write(read.id(), &seq, read.desc(), read.qual())?;
                 }
             }
         }
         None => {
             let fx_iter = utils::new_fx_iterator(fx_path)?;
+            let mut fx_writer = FxWriter::new(out_paras.output_fasta);
             for (i, record) in fx_iter.records().enumerate() {
                 let read = record.unwrap();
                 let filtered_read = filter_read(i + 1, &read, filter_rule);
                 if filtered_read {
                     let seq = modify_seq(&read, &mask_paras);
-                    println!("[i={}] {:?}", i, String::from_utf8(seq));
-                    // break
+                    fx_writer.write(read.id(), &seq, read.desc(), read.qual())?;
                 }
             }
         }

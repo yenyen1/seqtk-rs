@@ -53,13 +53,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.trim_header,
                 seq.strip_whitespace,
             );
-            seq::parse_seq(
-                &seq.in_fx,
-                &seq.out.clone().unwrap_or(out),
-                &filter_rule,
-                &mask_paras,
-                &out_paras,
-            )?;
+            seq::parse_seq(&seq.in_fx, &filter_rule, &mask_paras, &out_paras)?;
         }
     }
     println!(
