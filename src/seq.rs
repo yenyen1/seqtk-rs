@@ -1,3 +1,5 @@
+use std::io::Read;
+
 use crate::utils::{self, FxWriter};
 use anyhow;
 use bio::io::bed;
@@ -105,6 +107,14 @@ impl OutArgs {
             !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
             "Should not use --output-fasta with --output-qual-shift or --fake-fastq-quality."
         );
+        assert!(
+            !(output_qual_shift != 0 && fake_fastq_quality.is_some()),
+            "Should not use --output-qual-shift and --fake-fastq-quality together."
+        );
+        assert!(
+            !(reverse_complement && both_complement), 
+            "Should not use --reverse-complement and --both-complement together."
+        );
         OutArgs {
             output_qual_shift,
             fake_fastq_quality,
@@ -117,8 +127,8 @@ impl OutArgs {
         }
     }
 }
-pub fn parse_seq(
-    fx_path: &String,
+pub fn parse_fastq(
+    fq_path: &String,
     filter_rule: &FilterParas,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
@@ -126,7 +136,7 @@ pub fn parse_seq(
     match filter_rule.sample_fraction {
         Some(frac) => {
             let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
-            let fx_iter = utils::new_fx_iterator(fx_path)?;
+            let fx_iter = utils::new_fq_iterator(fq_path)?;
             let mut fx_writer = FxWriter::new(out_paras.output_fasta);
 
             for (i, record) in fx_iter.records().enumerate() {
@@ -134,24 +144,57 @@ pub fn parse_seq(
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
                     let seq = modify_seq(&read, &mask_paras);
-                    fx_writer.write(read.id(), &seq, read.desc(), read.qual())?;
+                    let desc = if out_paras.trim_header {
+                        None
+                    } else {
+                        read.desc()
+                    };
+                    fx_writer.write(read.id(), &seq, desc, read.qual())?;
                 }
             }
         }
         None => {
-            let fx_iter = utils::new_fx_iterator(fx_path)?;
+            let fx_iter = utils::new_fq_iterator(fq_path)?;
             let mut fx_writer = FxWriter::new(out_paras.output_fasta);
             for (i, record) in fx_iter.records().enumerate() {
                 let read = record.unwrap();
                 let filtered_read = filter_read(i + 1, &read, filter_rule);
                 if filtered_read {
                     let seq = modify_seq(&read, &mask_paras);
-                    fx_writer.write(read.id(), &seq, read.desc(), read.qual())?;
+                    let desc = if out_paras.trim_header {None} else {read.desc()};
+                    let qual = modify_qual(&read, out_paras);
+
+                    if out_paras.reverse_complement{
+                        fx_writer.write(read.id(), &seq, desc, &qual)?;
+                    } else if out_paras.both_complement {
+                        fx_writer.write(read.id(), &seq, desc, &qual)?;
+                    } else {
+                        fx_writer.write(read.id(), &seq, desc, &qual)?;
+                    }
                 }
             }
         }
     }
     Ok(())
+}
+// fn modify_desc(read: &Record, out_paras: &OutArgs) -> Option<&str> {
+//     if out_paras.trim_header {None} else {read.desc()}
+// }
+fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
+    if out_paras.output_qual_shift == 0 {
+        read.qual().to_vec()
+    } else {
+        match out_paras.fake_fastq_quality {
+            Some(fake_qual) => {
+                vec![fake_qual as u8; read.seq().len()]
+            }
+            None => read
+                .qual()
+                .iter()
+                .map(|q| q - out_paras.output_qual_shift)
+                .collect(),
+        }
+    }
 }
 // fn modify_qual(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {}
 fn modify_seq(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {

@@ -49,7 +49,7 @@ fn process_fastq_and_check(
     let mut qual_count_arr =
         QualMap::init_qual_count_arr(max_length, qual_map.len(), qual_threshold);
 
-    let fq_iter = utils::new_fx_iterator(fq_path)?;
+    let fq_iter = utils::new_fq_iterator(fq_path)?;
     for record in fq_iter.records() {
         let cur_read = record.unwrap();
 
@@ -139,7 +139,7 @@ fn parse_fq_and_write_length_and_qual_stats(
     }
     let mut reads_size = Vec::<u32>::new();
     let mut qual_set: HashSet<u8> = HashSet::new();
-    let fq_iter = utils::new_fx_iterator(fq_path)?;
+    let fq_iter = utils::new_fq_iterator(fq_path)?;
     for record in fq_iter.records() {
         let cur_read = record.unwrap();
         reads_size.push(cur_read.seq().len() as u32);

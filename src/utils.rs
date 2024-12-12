@@ -12,7 +12,7 @@ pub fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
     let writer = BufWriter::new(file);
     Ok(writer)
 }
-pub fn new_fx_iterator(file_path: &str) -> io::Result<fastq::Reader<BufReader<Box<dyn BufRead>>>> {
+pub fn new_fq_iterator(file_path: &str) -> io::Result<fastq::Reader<BufReader<Box<dyn BufRead>>>> {
     let file_extension = Path::new(file_path).extension().and_then(|s| s.to_str());
     let file = File::open(file_path)?;
     let reader: Box<dyn BufRead> = match file_extension {
@@ -23,6 +23,18 @@ pub fn new_fx_iterator(file_path: &str) -> io::Result<fastq::Reader<BufReader<Bo
         _ => Box::new(BufReader::new(file)),
     };
     Ok(fastq::Reader::new(reader))
+}
+pub fn new_fx_iterator(file_path: &str) -> io::Result<fasta::Reader<BufReader<Box<dyn BufRead>>>> {
+    let file_extension = Path::new(file_path).extension().and_then(|s| s.to_str());
+    let file = File::open(file_path)?;
+    let reader: Box<dyn BufRead> = match file_extension {
+        Some("gz") => {
+            let gz_decoder = GzDecoder::new(file);
+            Box::new(BufReader::new(gz_decoder))
+        }
+        _ => Box::new(BufReader::new(file)),
+    };
+    Ok(fasta::Reader::new(reader))
 }
 pub enum FxWriter {
     Fasta(fasta::Writer<Stdout>),
