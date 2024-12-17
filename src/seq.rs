@@ -1,5 +1,4 @@
-use std::io::Read;
-
+use crate::dna;
 use crate::utils::{self, FxWriter};
 use anyhow;
 use bio::io::bed;
@@ -7,13 +6,12 @@ use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
-
 pub struct FilterParas {
     // fastq
-    mini_seq_length: usize,       // fq
-    drop_ambigous_seq: bool,      // fq
-    output_odd_reads: bool,       // fq
-    output_even_reads: bool,      // fq
+    mini_seq_length: usize,       // fq(V), fa(need to add)
+    drop_ambigous_seq: bool,      // fq(V), fa(need to add)
+    output_odd_reads: bool,       // fq, fa
+    output_even_reads: bool,      // fq, fa
     random_seed: u64,             // fq
     sample_fraction: Option<f64>, // fq
 }
@@ -85,23 +83,21 @@ impl<'a> MaskParas<'a> {
 pub struct OutArgs {
     output_qual_shift: u8, // fq Q
     fake_fastq_quality: Option<char>,
-    output_fasta: bool, //
-    n_residues: Option<u32>,
+    output_fasta: bool,       //
     reverse_complement: bool, // fa | fq
     both_complement: bool,    // fa | fq
     trim_header: bool,
-    strip_whitespace: bool,
+    line_len: usize,
 }
 impl OutArgs {
     pub fn new(
         output_qual_shift: u8, // fq Q
         fake_fastq_quality: Option<char>,
         output_fasta: bool,
-        n_residues: Option<u32>,
         reverse_complement: bool,
         both_complement: bool,
         trim_header: bool,
-        strip_whitespace: bool,
+        line_len: usize,
     ) -> Self {
         assert!(
             !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
@@ -112,23 +108,30 @@ impl OutArgs {
             "Should not use --output-qual-shift and --fake-fastq-quality together."
         );
         assert!(
-            !(reverse_complement && both_complement), 
+            !(reverse_complement && both_complement),
             "Should not use --reverse-complement and --both-complement together."
         );
         OutArgs {
             output_qual_shift,
             fake_fastq_quality,
             output_fasta,
-            n_residues,
             reverse_complement,
             both_complement,
             trim_header,
-            strip_whitespace,
+            line_len,
         }
     }
 }
+pub fn parse_fasta(
+    fa_path: &str,
+    filter_rule: &FilterParas,
+    mask_paras: &MaskParas,
+    out_paras: &OutArgs,
+) -> Result<(), std::io::Error> {
+    Ok(())
+}
 pub fn parse_fastq(
-    fq_path: &String,
+    fq_path: &str,
     filter_rule: &FilterParas,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
@@ -143,13 +146,22 @@ pub fn parse_fastq(
                 let read = record.unwrap();
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
-                    let seq = modify_seq(&read, &mask_paras);
+                    let mut seq = modify_seq(&read, mask_paras);
                     let desc = if out_paras.trim_header {
                         None
                     } else {
                         read.desc()
                     };
-                    fx_writer.write(read.id(), &seq, desc, read.qual())?;
+                    let mut qual = modify_qual(&read, out_paras);
+
+                    if out_paras.reverse_complement {
+                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
+                    } else if out_paras.both_complement {
+                        fx_writer.write(read.id(), &seq, desc, &qual)?;
+                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
+                    } else {
+                        fx_writer.write(read.id(), &seq, desc, &qual)?;
+                    }
                 }
             }
         }
@@ -160,14 +172,19 @@ pub fn parse_fastq(
                 let read = record.unwrap();
                 let filtered_read = filter_read(i + 1, &read, filter_rule);
                 if filtered_read {
-                    let seq = modify_seq(&read, &mask_paras);
-                    let desc = if out_paras.trim_header {None} else {read.desc()};
-                    let qual = modify_qual(&read, out_paras);
+                    let mut seq = modify_seq(&read, mask_paras);
+                    let desc = if out_paras.trim_header {
+                        None
+                    } else {
+                        read.desc()
+                    };
+                    let mut qual = modify_qual(&read, out_paras);
 
-                    if out_paras.reverse_complement{
-                        fx_writer.write(read.id(), &seq, desc, &qual)?;
+                    if out_paras.reverse_complement {
+                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
                     } else if out_paras.both_complement {
                         fx_writer.write(read.id(), &seq, desc, &qual)?;
+                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
                     } else {
                         fx_writer.write(read.id(), &seq, desc, &qual)?;
                     }
@@ -177,22 +194,35 @@ pub fn parse_fastq(
     }
     Ok(())
 }
-// fn modify_desc(read: &Record, out_paras: &OutArgs) -> Option<&str> {
-//     if out_paras.trim_header {None} else {read.desc()}
-// }
+fn write_revcomp(
+    fx_writer: &mut FxWriter,
+    id: &str,
+    seq: &mut [u8],
+    desc: Option<&str>,
+    qual: &mut [u8],
+) -> Result<(), std::io::Error> {
+    for c in seq.iter_mut() {
+        *c = dna::complement(c);
+    }
+    seq.reverse();
+    qual.reverse();
+    fx_writer.write(id, seq, desc, qual)?;
+    Ok(())
+}
 fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
-    if out_paras.output_qual_shift == 0 {
-        read.qual().to_vec()
-    } else {
-        match out_paras.fake_fastq_quality {
-            Some(fake_qual) => {
-                vec![fake_qual as u8; read.seq().len()]
+    match out_paras.fake_fastq_quality {
+        Some(fake_qual) => {
+            vec![fake_qual as u8; read.seq().len()]
+        }
+        None => {
+            if out_paras.output_qual_shift == 0 {
+                read.qual().to_vec()
+            } else {
+                read.qual()
+                    .iter()
+                    .map(|q| q - out_paras.output_qual_shift)
+                    .collect()
             }
-            None => read
-                .qual()
-                .iter()
-                .map(|q| q - out_paras.output_qual_shift)
-                .collect(),
         }
     }
 }
@@ -261,7 +291,7 @@ fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
         false
     };
     let seq_wo_n: bool = if filter_rule.drop_ambigous_seq {
-        !read.seq().contains(&078_u8) // seq not containing N
+        !read.seq().contains(&78_u8) // seq not containing N
     } else {
         true
     };

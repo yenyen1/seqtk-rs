@@ -33,10 +33,12 @@ pub struct FqchkArgs {
 
 #[derive(Args)]
 pub struct SeqArgs {
-    #[arg(short = 'i', long)]
-    /// input fastq or fasta path
-    pub in_fx: String,
-
+    #[arg(short = 'I', long)]
+    /// input fastq path
+    pub in_fq: Option<String>,
+    #[arg(short = 'A', long)]
+    /// input fasta path
+    pub in_fa: Option<String>,
     #[arg(long)]
     /// ascii bases [default: 33]
     pub ascii_bases: Option<u8>,
@@ -50,8 +52,8 @@ pub struct SeqArgs {
     /// mask bases converted to CHAR [default: convert to lowercase]
     pub mask_char: Option<char>,
     #[arg(long)]
-    /// number of residues per line; 0 for 2^32-1 [default: 0]
-    pub n_residues: Option<u32>,
+    /// number of residues per line, range from 1 to 2^32-1 [default: 2^32-1]
+    pub line_len: Option<u32>,
     #[arg(short = 's', long)]
     /// random seed (effective with --sample-fraction / -f) [default: 4]
     pub random_seed: Option<u64>,
@@ -61,7 +63,7 @@ pub struct SeqArgs {
     #[arg(short = 'M', long)]
     /// mask regions in BED or name list FILE [default: null]
     pub mask_regions: Option<String>,
-    #[arg(short = 'L', long)]
+    #[arg(short = 'l', long)]
     /// drop sequences with length shorter than INT [default: 0]
     pub mini_seq_length: Option<usize>,
     #[arg(long)]
@@ -70,10 +72,10 @@ pub struct SeqArgs {
     #[arg(long)]
     /// mask complement region (effective with --mask-regions / -M)
     pub mask_complement_region: bool,
-    #[arg(long)]
+    #[arg(short = 'r', long)]
     /// reverse complement
     pub reverse_complement: bool,
-    #[arg(long)]
+    #[arg(short = 'R', long)]
     /// output both forward and reverse complement
     pub both_complement: bool,
     #[arg(long)]
@@ -82,7 +84,7 @@ pub struct SeqArgs {
     #[arg(long)]
     /// drop comments at the header lines
     pub trim_header: bool,
-    #[arg(long)]
+    #[arg(short = 'N', long)]
     /// drop sequences containing ambiguous bases
     pub drop_ambigous_seq: bool,
     #[arg(short = '1', long)]
