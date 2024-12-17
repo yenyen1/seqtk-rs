@@ -1,7 +1,7 @@
 use crate::dna;
 use crate::utils::{self, FxWriter};
-use anyhow;
-use bio::io::bed;
+// use anyhow;
+// use bio::io::bed;
 use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -220,7 +220,7 @@ fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
             } else {
                 read.qual()
                     .iter()
-                    .map(|q| q - out_paras.output_qual_shift)
+                    .map(|q| q + out_paras.output_qual_shift)
                     .collect()
             }
         }
@@ -265,19 +265,19 @@ fn modify_seq(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {
     }
     seq
 }
-fn masked_by_bed(seq: &[u8], mask_paras: &MaskParas) -> Result<(), anyhow::Error> {
-    match mask_paras.mask_regions {
-        Some(bed_path) => {
-            let mut bed_reader = bed::Reader::from_file(bed_path)?;
-            for record in bed_reader.records() {
-                let bed = record.unwrap();
-                bed.start();
-            }
-        }
-        None => {}
-    }
-    Ok(())
-}
+// fn masked_by_bed(seq: &[u8], mask_paras: &MaskParas) -> Result<(), anyhow::Error> {
+//     match mask_paras.mask_regions {
+//         Some(bed_path) => {
+//             let mut bed_reader = bed::Reader::from_file(bed_path)?;
+//             for record in bed_reader.records() {
+//                 let bed = record.unwrap();
+//                 bed.start();
+//             }
+//         }
+//         None => {}
+//     }
+//     Ok(())
+// }
 fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
     let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
         if filter_rule.output_even_reads {
@@ -299,4 +299,112 @@ fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
         seq_wo_n && // seq not containing N
         even_or_odd;
     write_read
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use bio::io::fastq::Record;
+
+    #[test]
+    fn test_modify_qual() {
+        let record = Record::with_attrs(
+            "@SEQ_ID_1",
+            None,
+            b"ATCGATcgACTTG",
+            b"!(*AAAABbbaaa",
+        );
+        // let oparas = OutArgs::new(output_qual_shift, fake_fastq_quality, output_fasta, reverse_complement, both_complement, trim_header, line_len);
+        // [01] no modify
+        let oparas = OutArgs::new(0, None, false, false, false, false, usize::MAX);
+        let out_qual = modify_qual(&record, &oparas);
+        assert_eq!(&out_qual, b"!(*AAAABbbaaa");
+        // [02] check output_qual_shift 
+        let oparas = OutArgs::new(20, None, false, false, false, false, usize::MAX);
+        let out_qual = modify_qual(&record, &oparas);
+        assert_eq!(&out_qual, b"5<>UUUUVvvuuu");
+        // [02] check output_qual_shift 
+        let oparas = OutArgs::new(0, Some('T'), false, false, false, false, usize::MAX);
+        let out_qual = modify_qual(&record, &oparas);
+        assert_eq!(&out_qual, b"TTTTTTTTTTTTT");
+    }   
+    #[test]
+    fn test_modify_seq() {
+        let record = Record::with_attrs(
+            "@SEQ_ID_1",
+            None,
+            b"ATCGATcgACTTG",
+            b"!(*AAAABbbaaz",
+        );
+
+        // [01] no modify
+        let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, record.seq());
+        // [02] check mask_char + lowrcases_to_char
+        let mparas = MaskParas::new(Some('N'), false, true, 0, 255, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"ATCGATNNACTTG");
+        // [03] check uppercases
+        let mparas = MaskParas::new(None, true, false, 0, 255, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"ATCGATCGACTTG");
+        // [04] check q_low and q_high
+        let mparas = MaskParas::new(None, false, false, 20 + 33, 255, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"atcGATcgACTTG");
+        let mparas = MaskParas::new(None, false, false, 0, 85 + 33, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"ATCGATcgACTTg");
+        // [05] check q_low and q_high + mask_char and lowercases_to_char
+        let mparas = MaskParas::new(Some('N'), false, false, 20 + 33, 85 + 33, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"NNNGATcgACTTN");
+        let mparas = MaskParas::new(Some('N'), false, true, 20 + 33, 85 + 33, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"NNNGATNNACTTN");
+        // [05] check q_low and q_high + uppercases
+        let mparas = MaskParas::new(None, true, false, 20 + 33, 85 + 33, &None, false);
+        let out_seq = modify_seq(&record, &mparas);
+        assert_eq!(&out_seq, b"atcGATCGACTTg");
+    }
+    #[test]
+    fn test_filter_read() {
+        let record = Record::with_attrs(
+            "@SEQ_ID_1",
+            None,
+            b"ATCGATCGACTTG",
+            b"!!<AAAABbbaab",
+        );
+
+        // [01] check mini_seq_length
+        let fparas = FilterParas::new(10, false, false, false, 0, None);
+        assert_eq!(filter_read(0, &record, &fparas), true);
+        let fparas = FilterParas::new(50, false, false, false, 0, None);
+        assert_eq!(filter_read(0, &record, &fparas), false);
+
+        // [02] check drop anbugous seq
+        let fparas = FilterParas::new(0, true, false, false, 0, None);
+        assert_eq!(filter_read(0, &record, &fparas), true);
+        let record2 = Record::with_attrs(
+            "@SEQ_ID_2",
+            None,
+            b"ANCGATCGACTTG",
+            b"!!<AAAABbbaab",
+        );
+        let fparas = FilterParas::new(0, true, false, false, 0, None);
+        assert_eq!(filter_read(0, &record2, &fparas), false);
+
+        // [03] output odd read
+        let fparas = FilterParas::new(0, true, true, false, 0, None);
+        assert_eq!(filter_read(1, &record, &fparas), true);
+        let fparas = FilterParas::new(0, true, true, false, 0, None);
+        assert_eq!(filter_read(0, &record, &fparas), false);
+
+        // [04] output even read
+        let fparas = FilterParas::new(0, true, false, true, 0, None);
+        assert_eq!(filter_read(2, &record, &fparas), true);
+        let fparas = FilterParas::new(0, true, false, true, 0, None);
+        assert_eq!(filter_read(3, &record, &fparas), false);
+    }
 }
