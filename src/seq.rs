@@ -1,5 +1,6 @@
 use crate::dna;
 use crate::utils::{self, FxWriter};
+
 // use anyhow;
 // use bio::io::bed;
 use bio::io::fastq::Record;
@@ -141,27 +142,11 @@ pub fn parse_fastq(
             let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
             let fx_iter = utils::new_fq_iterator(fq_path)?;
             let mut fx_writer = FxWriter::new(out_paras.output_fasta);
-
             for (i, record) in fx_iter.records().enumerate() {
                 let read = record.unwrap();
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
-                    let mut seq = modify_seq(&read, mask_paras);
-                    let desc = if out_paras.trim_header {
-                        None
-                    } else {
-                        read.desc()
-                    };
-                    let mut qual = modify_qual(&read, out_paras);
-
-                    if out_paras.reverse_complement {
-                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
-                    } else if out_paras.both_complement {
-                        fx_writer.write(read.id(), &seq, desc, &qual)?;
-                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
-                    } else {
-                        fx_writer.write(read.id(), &seq, desc, &qual)?;
-                    }
+                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras)?;
                 }
             }
         }
@@ -172,25 +157,34 @@ pub fn parse_fastq(
                 let read = record.unwrap();
                 let filtered_read = filter_read(i + 1, &read, filter_rule);
                 if filtered_read {
-                    let mut seq = modify_seq(&read, mask_paras);
-                    let desc = if out_paras.trim_header {
-                        None
-                    } else {
-                        read.desc()
-                    };
-                    let mut qual = modify_qual(&read, out_paras);
-
-                    if out_paras.reverse_complement {
-                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
-                    } else if out_paras.both_complement {
-                        fx_writer.write(read.id(), &seq, desc, &qual)?;
-                        write_revcomp(&mut fx_writer, read.id(), &mut seq, desc, &mut qual)?;
-                    } else {
-                        fx_writer.write(read.id(), &seq, desc, &qual)?;
-                    }
+                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras)?;
                 }
             }
         }
+    }
+    Ok(())
+}
+fn modify_and_print_read(
+    fx_writer: &mut FxWriter,
+    read: &Record,
+    mask_paras: &MaskParas,
+    out_paras: &OutArgs,
+) -> Result<(), std::io::Error> {
+    let mut seq = modify_seq(&read, mask_paras);
+    let desc = if out_paras.trim_header {
+        None
+    } else {
+        read.desc()
+    };
+    let mut qual = modify_qual(&read, out_paras);
+
+    if out_paras.reverse_complement {
+        write_revcomp(fx_writer, read.id(), &mut seq, desc, &mut qual)?;
+    } else if out_paras.both_complement {
+        fx_writer.write(read.id(), &seq, desc, &qual)?;
+        write_revcomp(fx_writer, read.id(), &mut seq, desc, &mut qual)?;
+    } else {
+        fx_writer.write(read.id(), &seq, desc, &qual)?;
     }
     Ok(())
 }
@@ -308,34 +302,23 @@ mod tests {
 
     #[test]
     fn test_modify_qual() {
-        let record = Record::with_attrs(
-            "@SEQ_ID_1",
-            None,
-            b"ATCGATcgACTTG",
-            b"!(*AAAABbbaaa",
-        );
-        // let oparas = OutArgs::new(output_qual_shift, fake_fastq_quality, output_fasta, reverse_complement, both_complement, trim_header, line_len);
+        let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaa");
         // [01] no modify
         let oparas = OutArgs::new(0, None, false, false, false, false, usize::MAX);
         let out_qual = modify_qual(&record, &oparas);
         assert_eq!(&out_qual, b"!(*AAAABbbaaa");
-        // [02] check output_qual_shift 
+        // [02] check output_qual_shift
         let oparas = OutArgs::new(20, None, false, false, false, false, usize::MAX);
         let out_qual = modify_qual(&record, &oparas);
         assert_eq!(&out_qual, b"5<>UUUUVvvuuu");
-        // [02] check output_qual_shift 
+        // [02] check output_qual_shift
         let oparas = OutArgs::new(0, Some('T'), false, false, false, false, usize::MAX);
         let out_qual = modify_qual(&record, &oparas);
         assert_eq!(&out_qual, b"TTTTTTTTTTTTT");
-    }   
+    }
     #[test]
     fn test_modify_seq() {
-        let record = Record::with_attrs(
-            "@SEQ_ID_1",
-            None,
-            b"ATCGATcgACTTG",
-            b"!(*AAAABbbaaz",
-        );
+        let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
 
         // [01] no modify
         let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
@@ -370,12 +353,7 @@ mod tests {
     }
     #[test]
     fn test_filter_read() {
-        let record = Record::with_attrs(
-            "@SEQ_ID_1",
-            None,
-            b"ATCGATCGACTTG",
-            b"!!<AAAABbbaab",
-        );
+        let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATCGACTTG", b"!!<AAAABbbaab");
 
         // [01] check mini_seq_length
         let fparas = FilterParas::new(10, false, false, false, 0, None);
@@ -386,12 +364,7 @@ mod tests {
         // [02] check drop anbugous seq
         let fparas = FilterParas::new(0, true, false, false, 0, None);
         assert_eq!(filter_read(0, &record, &fparas), true);
-        let record2 = Record::with_attrs(
-            "@SEQ_ID_2",
-            None,
-            b"ANCGATCGACTTG",
-            b"!!<AAAABbbaab",
-        );
+        let record2 = Record::with_attrs("@SEQ_ID_2", None, b"ANCGATCGACTTG", b"!!<AAAABbbaab");
         let fparas = FilterParas::new(0, true, false, false, 0, None);
         assert_eq!(filter_read(0, &record2, &fparas), false);
 
