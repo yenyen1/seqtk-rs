@@ -88,7 +88,7 @@ pub struct OutArgs {
     reverse_complement: bool, // fa | fq
     both_complement: bool,    // fa | fq
     trim_header: bool,
-    line_len: usize,
+    line_len: Option<usize>,
 }
 impl OutArgs {
     pub fn new(
@@ -98,7 +98,7 @@ impl OutArgs {
         reverse_complement: bool,
         both_complement: bool,
         trim_header: bool,
-        line_len: usize,
+        line_len: Option<usize>,
     ) -> Self {
         assert!(
             !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
@@ -170,14 +170,19 @@ fn modify_and_print_read(
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
 ) -> Result<(), std::io::Error> {
-    let mut seq = modify_seq(&read, mask_paras);
+    let mut seq = modify_seq(read, mask_paras);
     let desc = if out_paras.trim_header {
         None
     } else {
         read.desc()
     };
-    let mut qual = modify_qual(&read, out_paras);
+    let mut qual = modify_qual(read, out_paras);
 
+    if let Some(line_len) = out_paras.line_len {
+        add_newlines(&mut seq, line_len);
+        add_newlines(&mut qual, line_len);
+    }
+    
     if out_paras.reverse_complement {
         write_revcomp(fx_writer, read.id(), &mut seq, desc, &mut qual)?;
     } else if out_paras.both_complement {
@@ -187,6 +192,13 @@ fn modify_and_print_read(
         fx_writer.write(read.id(), &seq, desc, &qual)?;
     }
     Ok(())
+}
+fn add_newlines(data: &mut Vec<u8>, line_len: usize) {
+    let mut i = line_len; 
+    while i < data.len() {
+        data.insert(i, b'\n'); // Insert '\n' after i
+        i += line_len + 1; 
+    }
 }
 fn write_revcomp(
     fx_writer: &mut FxWriter,
@@ -304,15 +316,15 @@ mod tests {
     fn test_modify_qual() {
         let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaa");
         // [01] no modify
-        let oparas = OutArgs::new(0, None, false, false, false, false, usize::MAX);
+        let oparas = OutArgs::new(0, None, false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
         assert_eq!(&out_qual, b"!(*AAAABbbaaa");
         // [02] check output_qual_shift
-        let oparas = OutArgs::new(20, None, false, false, false, false, usize::MAX);
+        let oparas = OutArgs::new(20, None, false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
         assert_eq!(&out_qual, b"5<>UUUUVvvuuu");
         // [02] check output_qual_shift
-        let oparas = OutArgs::new(0, Some('T'), false, false, false, false, usize::MAX);
+        let oparas = OutArgs::new(0, Some('T'), false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
         assert_eq!(&out_qual, b"TTTTTTTTTTTTT");
     }
@@ -379,5 +391,11 @@ mod tests {
         assert_eq!(filter_read(2, &record, &fparas), true);
         let fparas = FilterParas::new(0, true, false, true, 0, None);
         assert_eq!(filter_read(3, &record, &fparas), false);
+    }
+    #[test]
+    fn test_add_newlines(){
+        let mut seq = b"aaaaabbbbbcccccdddddeeeeefffff".to_vec();
+        add_newlines(&mut seq, 5);
+        assert_eq!(seq, b"aaaaa\nbbbbb\nccccc\nddddd\neeeee\nfffff");
     }
 }

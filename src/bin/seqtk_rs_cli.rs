@@ -1,6 +1,6 @@
 use clap::Parser;
 use seqtk_rs::{fq_check, seq, sub_cli};
-use std::{time::Instant, u32};
+use std::time::Instant;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -50,13 +50,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.reverse_complement,
                 seq.both_complement,
                 seq.trim_header,
-                seq.line_len.unwrap_or(u32::MAX) as usize,
+                seq.line_len,
             );
             if let Some(in_fq) = &seq.in_fq {
-                seq::parse_fastq(&in_fq, &filter_rule, &mask_paras, &out_paras)?;
+                seq::parse_fastq(in_fq, &filter_rule, &mask_paras, &out_paras)?;
             }
             if let Some(in_fa) = &seq.in_fa {
-                seq::parse_fasta(&in_fa, &filter_rule, &mask_paras, &out_paras)?;
+                seq::parse_fasta(in_fa, &filter_rule, &mask_paras, &out_paras)?;
             }
         }
     }

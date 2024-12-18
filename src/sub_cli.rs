@@ -52,8 +52,8 @@ pub struct SeqArgs {
     /// mask bases converted to CHAR [default: convert to lowercase]
     pub mask_char: Option<char>,
     #[arg(long)]
-    /// number of residues per line, range from 1 to 2^32-1 [default: 2^32-1]
-    pub line_len: Option<u32>,
+    /// number of characters per line for seqence and quality [default: all in one line]
+    pub line_len: Option<usize>,
     #[arg(short = 's', long)]
     /// random seed (effective with --sample-fraction / -f) [default: 4]
     pub random_seed: Option<u64>,
