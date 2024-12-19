@@ -1,8 +1,9 @@
+use std::char::MAX;
+use std::collections::HashMap;
+use std::io;
+
 use crate::dna;
 use crate::utils::{self, FxWriter};
-
-// use anyhow;
-// use bio::io::bed;
 use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -137,6 +138,12 @@ pub fn parse_fastq(
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
 ) -> Result<(), std::io::Error> {
+    let bed_map = match mask_paras.mask_regions {
+        Some(bed_path) => {
+            utils::get_bed_map(bed_path)?
+        },
+        None => HashMap::<String, [usize;2]>::new(),
+    };
     match filter_rule.sample_fraction {
         Some(frac) => {
             let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
@@ -146,7 +153,7 @@ pub fn parse_fastq(
                 let read = record.unwrap();
                 let filter = filter_read(i + 1, &read, filter_rule);
                 if filter && rng.gen::<f64>() <= frac {
-                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras)?;
+                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras, &bed_map)?;
                 }
             }
         }
@@ -157,7 +164,7 @@ pub fn parse_fastq(
                 let read = record.unwrap();
                 let filtered_read = filter_read(i + 1, &read, filter_rule);
                 if filtered_read {
-                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras)?;
+                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras, &bed_map)?;
                 }
             }
         }
@@ -169,8 +176,9 @@ fn modify_and_print_read(
     read: &Record,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
+    bed_map: &HashMap<String, [usize;2]>,
 ) -> Result<(), std::io::Error> {
-    let mut seq = modify_seq(read, mask_paras);
+    let mut seq = modify_seq(read, mask_paras, bed_map);
     let desc = if out_paras.trim_header {
         None
     } else {
@@ -232,8 +240,9 @@ fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
         }
     }
 }
-// fn modify_qual(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {}
-fn modify_seq(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {
+fn modify_seq(read: &Record, mask_paras: &MaskParas, bed_map: &HashMap<String, [usize;2]>) -> Vec<u8> {
+    let name = read.id();
+    let &[start, end] = if bed_map.contains_key(name) {bed_map.get(name).unwrap()} else {&[usize::MAX, 0]};
     let mut seq = if mask_paras.uppercases {
         // convert to uppercases
         read.seq().to_ascii_uppercase()
@@ -245,45 +254,38 @@ fn modify_seq(read: &Record, mask_paras: &MaskParas) -> Vec<u8> {
             // masked bases to char.
             let c_u8 = c as u8;
             if mask_paras.lowercases_to_char {
-                for (&qual, ch) in read.qual().iter().zip(seq.iter_mut()) {
+                for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                     if qual < mask_paras.q_low || mask_paras.q_high < qual {
                         *ch = c_u8; // mask bases by q_low and q_high
+                    } else if start <= i && i < end {
+                        *ch = c_u8; // mask bases by bed
                     } else if ch.is_ascii_lowercase() {
                         *ch = c_u8; // convert lowercase to char
                     }
                 }
             } else {
-                for (&qual, ch) in read.qual().iter().zip(seq.iter_mut()) {
+                for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                     if qual < mask_paras.q_low || mask_paras.q_high < qual {
                         *ch = c_u8; // mask bases by q_low and q_high
+                    } else if start <= i && i < end {
+                        *ch = c_u8; // mask bases by bed
                     }
                 }
             }
         }
         None => {
             // masked bases to lowercases.
-            for (&qual, ch) in read.qual().iter().zip(seq.iter_mut()) {
+            for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                 if qual < mask_paras.q_low || mask_paras.q_high < qual {
                     *ch = ch.to_ascii_lowercase(); // mask bases by q_low and q_high
+                }else if start <= i && i < end {
+                    *ch = ch.to_ascii_lowercase(); // mask bases by bed
                 }
             }
         }
     }
     seq
 }
-// fn masked_by_bed(seq: &[u8], mask_paras: &MaskParas) -> Result<(), anyhow::Error> {
-//     match mask_paras.mask_regions {
-//         Some(bed_path) => {
-//             let mut bed_reader = bed::Reader::from_file(bed_path)?;
-//             for record in bed_reader.records() {
-//                 let bed = record.unwrap();
-//                 bed.start();
-//             }
-//         }
-//         None => {}
-//     }
-//     Ok(())
-// }
 fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
     let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
         if filter_rule.output_even_reads {
@@ -314,7 +316,7 @@ mod tests {
 
     #[test]
     fn test_modify_qual() {
-        let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaa");
+        let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaa");
         // [01] no modify
         let oparas = OutArgs::new(0, None, false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
@@ -330,38 +332,44 @@ mod tests {
     }
     #[test]
     fn test_modify_seq() {
-        let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
+        let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
+        let mut bed_map: HashMap<String, [usize;2]> = HashMap::new();
 
         // [01] no modify
         let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
-        assert_eq!(&out_seq, record.seq());
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
+        assert_eq!(&out_seq, b"ATCGATcgACTTG");
         // [02] check mask_char + lowrcases_to_char
         let mparas = MaskParas::new(Some('N'), false, true, 0, 255, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"ATCGATNNACTTG");
         // [03] check uppercases
         let mparas = MaskParas::new(None, true, false, 0, 255, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"ATCGATCGACTTG");
         // [04] check q_low and q_high
         let mparas = MaskParas::new(None, false, false, 20 + 33, 255, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"atcGATcgACTTG");
         let mparas = MaskParas::new(None, false, false, 0, 85 + 33, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"ATCGATcgACTTg");
         // [05] check q_low and q_high + mask_char and lowercases_to_char
         let mparas = MaskParas::new(Some('N'), false, false, 20 + 33, 85 + 33, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"NNNGATcgACTTN");
         let mparas = MaskParas::new(Some('N'), false, true, 20 + 33, 85 + 33, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"NNNGATNNACTTN");
         // [05] check q_low and q_high + uppercases
         let mparas = MaskParas::new(None, true, false, 20 + 33, 85 + 33, &None, false);
-        let out_seq = modify_seq(&record, &mparas);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"atcGATCGACTTg");
+        // [06] check mask by bed 
+        bed_map.insert("SEQ_ID_1".to_string(),[5,10]);
+        let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
+        assert_eq!(&out_seq, b"ATCGAtcgacTTG");
     }
     #[test]
     fn test_filter_read() {

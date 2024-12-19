@@ -61,7 +61,7 @@ pub struct SeqArgs {
     /// sample FLOAT fraction of sequences [default: 1.]
     pub sample_fraction: Option<f64>,
     #[arg(short = 'M', long)]
-    /// mask regions in BED or name list FILE [default: null]
+    /// mask regions in BED (0-based) or name list FILE [default: null]
     pub mask_regions: Option<String>,
     #[arg(short = 'l', long)]
     /// drop sequences with length shorter than INT [default: 0]
