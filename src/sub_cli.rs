@@ -34,40 +34,40 @@ pub struct FqchkArgs {
 #[derive(Args)]
 pub struct SeqArgs {
     #[arg(short = 'I', long)]
-    /// input fastq path
+    /// Input fastq path
     pub in_fq: Option<String>,
     #[arg(short = 'A', long)]
-    /// input fasta path
+    /// Input fasta path
     pub in_fa: Option<String>,
     #[arg(long)]
-    /// ascii bases [default: 33]
+    /// The quality scores are represented as characters with ASCII values equal to the score plus a base offset (asciibases). [default: 33]
     pub ascii_bases: Option<u8>,
     #[arg(long)]
-    /// mask bases that quality lower than q_low [default: 0]
+    /// Mask bases with a quality score lower than Q_LOW. [default: 0]
     pub q_low: Option<u8>,
     #[arg(long)]
-    /// mask bases that quality higher than q_high [default: 255]
+    /// Mask bases with a quality score higher than Q_HIGH. [default: 255]
     pub q_high: Option<u8>,
     #[arg(long)]
-    /// mask bases converted to CHAR [default: convert to lowercase]
+    /// Mask bases by converting them to CHAR. [default: convert to lowercase]
     pub mask_char: Option<char>,
     #[arg(long)]
-    /// number of characters per line for seqence and quality [default: all in one line]
+    /// Number of characters per line for sequences and their corresponding quality values. [default: all on a single line]
     pub line_len: Option<usize>,
     #[arg(short = 's', long)]
-    /// random seed (effective with --sample-fraction / -f) [default: 4]
+    /// Set the seed for the random number generator. This value ensures reproducibility of the sampling process. (This option takes effect only when used in conjunction with --sample-fraction / -f.) [default: 4]
     pub random_seed: Option<u64>,
     #[arg(short = 'f', long)]
-    /// sample FLOAT fraction of sequences [default: 1.]
+    /// Specify the fraction of the total dataset to sample. The value is a FLOAT between 0 and 1. For example, a value of 0.1 will sample 10% of the data. [default: 1.]
     pub sample_fraction: Option<f64>,
     #[arg(short = 'M', long)]
-    /// mask regions in BED (0-based) or name list FILE [default: null]
+    /// Mask bases with regions specified in a BED (0-based) file. [default: null]
     pub mask_regions: Option<String>,
     #[arg(short = 'l', long)]
-    /// drop sequences with length shorter than INT [default: 0]
+    /// Remove sequences shorter than INT. [default: 0]
     pub mini_seq_length: Option<usize>,
     #[arg(long)]
-    /// output fake FASTQ quality char
+    /// Generate fake quality values using the specified CHAR.
     pub fake_fastq_quality: Option<char>,
     #[arg(long)]
     /// mask complement region (effective with --mask-regions / -M)
@@ -85,24 +85,23 @@ pub struct SeqArgs {
     /// drop comments at the header lines
     pub trim_header: bool,
     #[arg(short = 'N', long)]
-    /// drop sequences containing ambiguous bases
+    /// drop sequences containing ambiguous bases 'N'
     pub drop_ambigous_seq: bool,
     #[arg(short = '1', long)]
-    /// output the 2n-1 reads only
-    pub output_odd_reads: bool,
+    /// Output only the reads from odd-numbered records (1st, 3rd, 5th, etc.).
+    pub output_odd: bool,
     #[arg(short = '2', long)]
-    /// output the 2n reads only
-    pub output_even_reads: bool,
+    /// Output only the reads from even-numbered records (2n-th).
+    pub output_even: bool,
     #[arg(long)]
-    /// output by quality that shift with value 'Q'.
-    pub output_shift_qual: Option<u8>,
+    /// Output the quality score to an offset of 33 (Effective only when --ascii-bases is not 33.).
+    pub output_qual_33: bool,
     #[arg(short = 'U', long)]
-    /// convert all bases to uppercases
+    /// Converts all bases in the sequences to uppercase. When used in conjunction with other masking options 
+    /// (e.g., --q-low, --q-high, --mask-regions, --mask-char, etc.), 
+    /// the program first converts the sequences to uppercase and then applies the other masking operations.
     pub uppercases: bool,
     #[arg(short = 'x', long)]
-    /// convert all lowercases to -n
+    /// Convert all lowercases to --mark-char
     pub lowercases_to_char: bool,
-    #[arg(short = 'S', long)]
-    /// strip of white spaces in sequences
-    pub strip_whitespace: bool,
 }

@@ -1,13 +1,11 @@
-use std::char::MAX;
-use std::collections::HashMap;
-use std::io;
-
 use crate::dna;
 use crate::utils::{self, FxWriter};
 use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
+use std::collections::HashMap;
+
 pub struct FilterParas {
     // fastq
     mini_seq_length: usize,       // fq(V), fa(need to add)
@@ -63,10 +61,10 @@ impl<'a> MaskParas<'a> {
             !(mask_complement_region && mask_regions.is_none()),
             "--mask-complment-region should effective with --mask-regions."
         );
-        assert!(
-            !(uppercases && (lowercases_to_char || mask_char.is_some())),
-            "Should not use --uppercases with --lowercases_to_char or --mask-char together."
-        );
+        // assert!(
+        //     !(uppercases && (lowercases_to_char || mask_char.is_some())),
+        //     "Should not use --uppercases with --lowercases_to_char or --mask-char together."
+        // );
         assert!(
             !(lowercases_to_char && mask_char.is_none()),
             "--lowercases-to-char should effective with --mask-char."
@@ -102,11 +100,11 @@ impl OutArgs {
         line_len: Option<usize>,
     ) -> Self {
         assert!(
-            !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
+            !(output_fasta && (output_qual_shift !=0 || fake_fastq_quality.is_some())),
             "Should not use --output-fasta with --output-qual-shift or --fake-fastq-quality."
         );
         assert!(
-            !(output_qual_shift != 0 && fake_fastq_quality.is_some()),
+            !(output_qual_shift !=0 && fake_fastq_quality.is_some()),
             "Should not use --output-qual-shift and --fake-fastq-quality together."
         );
         assert!(
@@ -139,10 +137,8 @@ pub fn parse_fastq(
     out_paras: &OutArgs,
 ) -> Result<(), std::io::Error> {
     let bed_map = match mask_paras.mask_regions {
-        Some(bed_path) => {
-            utils::get_bed_map(bed_path)?
-        },
-        None => HashMap::<String, [usize;2]>::new(),
+        Some(bed_path) => utils::get_bed_map(bed_path)?,
+        None => HashMap::<String, [usize; 2]>::new(),
     };
     match filter_rule.sample_fraction {
         Some(frac) => {
@@ -176,7 +172,7 @@ fn modify_and_print_read(
     read: &Record,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
-    bed_map: &HashMap<String, [usize;2]>,
+    bed_map: &HashMap<String, [usize; 2]>,
 ) -> Result<(), std::io::Error> {
     let mut seq = modify_seq(read, mask_paras, bed_map);
     let desc = if out_paras.trim_header {
@@ -190,7 +186,7 @@ fn modify_and_print_read(
         add_newlines(&mut seq, line_len);
         add_newlines(&mut qual, line_len);
     }
-    
+
     if out_paras.reverse_complement {
         write_revcomp(fx_writer, read.id(), &mut seq, desc, &mut qual)?;
     } else if out_paras.both_complement {
@@ -202,10 +198,10 @@ fn modify_and_print_read(
     Ok(())
 }
 fn add_newlines(data: &mut Vec<u8>, line_len: usize) {
-    let mut i = line_len; 
+    let mut i = line_len;
     while i < data.len() {
         data.insert(i, b'\n'); // Insert '\n' after i
-        i += line_len + 1; 
+        i += line_len + 1;
     }
 }
 fn write_revcomp(
@@ -234,15 +230,23 @@ fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
             } else {
                 read.qual()
                     .iter()
-                    .map(|q| q + out_paras.output_qual_shift)
+                    .map(|q| q - out_paras.output_qual_shift)
                     .collect()
             }
         }
     }
 }
-fn modify_seq(read: &Record, mask_paras: &MaskParas, bed_map: &HashMap<String, [usize;2]>) -> Vec<u8> {
+fn modify_seq(
+    read: &Record,
+    mask_paras: &MaskParas,
+    bed_map: &HashMap<String, [usize; 2]>,
+) -> Vec<u8> {
     let name = read.id();
-    let &[start, end] = if bed_map.contains_key(name) {bed_map.get(name).unwrap()} else {&[usize::MAX, 0]};
+    let &[start, end] = if bed_map.contains_key(name) {
+        bed_map.get(name).unwrap()
+    } else {
+        &[usize::MAX, 0]
+    };
     let mut seq = if mask_paras.uppercases {
         // convert to uppercases
         read.seq().to_ascii_uppercase()
@@ -278,7 +282,7 @@ fn modify_seq(read: &Record, mask_paras: &MaskParas, bed_map: &HashMap<String, [
             for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                 if qual < mask_paras.q_low || mask_paras.q_high < qual {
                     *ch = ch.to_ascii_lowercase(); // mask bases by q_low and q_high
-                }else if start <= i && i < end {
+                } else if start <= i && i < end {
                     *ch = ch.to_ascii_lowercase(); // mask bases by bed
                 }
             }
@@ -333,7 +337,7 @@ mod tests {
     #[test]
     fn test_modify_seq() {
         let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
-        let mut bed_map: HashMap<String, [usize;2]> = HashMap::new();
+        let mut bed_map: HashMap<String, [usize; 2]> = HashMap::new();
 
         // [01] no modify
         let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
@@ -365,8 +369,8 @@ mod tests {
         let mparas = MaskParas::new(None, true, false, 20 + 33, 85 + 33, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"atcGATCGACTTg");
-        // [06] check mask by bed 
-        bed_map.insert("SEQ_ID_1".to_string(),[5,10]);
+        // [06] check mask by bed
+        bed_map.insert("SEQ_ID_1".to_string(), [5, 10]);
         let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
         assert_eq!(&out_seq, b"ATCGAtcgacTTG");
@@ -401,7 +405,7 @@ mod tests {
         assert_eq!(filter_read(3, &record, &fparas), false);
     }
     #[test]
-    fn test_add_newlines(){
+    fn test_add_newlines() {
         let mut seq = b"aaaaabbbbbcccccdddddeeeeefffff".to_vec();
         add_newlines(&mut seq, 5);
         assert_eq!(seq, b"aaaaa\nbbbbb\nccccc\nddddd\neeeee\nfffff");

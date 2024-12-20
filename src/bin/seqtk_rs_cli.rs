@@ -28,12 +28,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let filter_rule = seq::FilterParas::new(
                 seq.mini_seq_length.unwrap_or(0),
                 seq.drop_ambigous_seq,
-                seq.output_even_reads,
-                seq.output_odd_reads,
+                seq.output_even,
+                seq.output_odd,
                 seq.random_seed.unwrap_or(11),
                 seq.sample_fraction,
             );
             let ascii_bases = seq.ascii_bases.unwrap_or(33);
+            let out_qual_shift = if seq.output_qual_33 {ascii_bases - 33} else {0};
             let mask_paras = seq::MaskParas::new(
                 seq.mask_char,
                 seq.uppercases,
@@ -44,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.mask_complement_region,
             );
             let out_paras = seq::OutArgs::new(
-                seq.output_shift_qual.unwrap_or(0), // 'Q' + 33
+                out_qual_shift, 
                 seq.fake_fastq_quality,
                 seq.output_fasta,
                 seq.reverse_complement,
