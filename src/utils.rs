@@ -68,10 +68,10 @@ impl FxWriter {
         Ok(())
     }
 }
-pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, [usize; 2]>, io::Error> {
+pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, io::Error> {
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
-    let mut bed_map: HashMap<String, [usize; 2]> = HashMap::new();
+    let mut bed_map: HashMap<String, Vec<[usize; 2]>> = HashMap::new();
     for line in reader.lines() {
         match line {
             Ok(line_content) => {
@@ -81,7 +81,10 @@ pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, [usize; 2]>, io::E
                     if let (Ok(start), Ok(end)) =
                         (columns[1].parse::<usize>(), columns[2].parse::<usize>())
                     {
-                        bed_map.insert(name, [start, end]);
+                        bed_map
+                            .entry(name)
+                            .or_insert_with(Vec::new)
+                            .push([start, end]);
                     } else {
                         eprintln!("Error parsing start or end for line: {}", line_content);
                     }

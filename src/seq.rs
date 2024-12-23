@@ -100,11 +100,11 @@ impl OutArgs {
         line_len: Option<usize>,
     ) -> Self {
         assert!(
-            !(output_fasta && (output_qual_shift !=0 || fake_fastq_quality.is_some())),
+            !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
             "Should not use --output-fasta with --output-qual-shift or --fake-fastq-quality."
         );
         assert!(
-            !(output_qual_shift !=0 && fake_fastq_quality.is_some()),
+            !(output_qual_shift != 0 && fake_fastq_quality.is_some()),
             "Should not use --output-qual-shift and --fake-fastq-quality together."
         );
         assert!(
@@ -138,7 +138,7 @@ pub fn parse_fastq(
 ) -> Result<(), std::io::Error> {
     let bed_map = match mask_paras.mask_regions {
         Some(bed_path) => utils::get_bed_map(bed_path)?,
-        None => HashMap::<String, [usize; 2]>::new(),
+        None => HashMap::new(),
     };
     match filter_rule.sample_fraction {
         Some(frac) => {
@@ -172,7 +172,7 @@ fn modify_and_print_read(
     read: &Record,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
-    bed_map: &HashMap<String, [usize; 2]>,
+    bed_map: &HashMap<String, Vec<[usize; 2]>>,
 ) -> Result<(), std::io::Error> {
     let mut seq = modify_seq(read, mask_paras, bed_map);
     let desc = if out_paras.trim_header {
@@ -239,51 +239,64 @@ fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
 fn modify_seq(
     read: &Record,
     mask_paras: &MaskParas,
-    bed_map: &HashMap<String, [usize; 2]>,
+    bed_map: &HashMap<String, Vec<[usize; 2]>>,
 ) -> Vec<u8> {
-    let name = read.id();
-    let &[start, end] = if bed_map.contains_key(name) {
-        bed_map.get(name).unwrap()
-    } else {
-        &[usize::MAX, 0]
-    };
+    fn is_overlapping(pos: usize, bed_pos: &Vec<[usize; 2]>) -> bool {
+        bed_pos
+            .iter()
+            .any(|&range| range[0] <= pos && pos < range[1])
+    }
+    let default_bed_pos = vec![[usize::MAX, 0]];
+    let bed_pos = bed_map.get(read.id()).unwrap_or(&default_bed_pos);
     let mut seq = if mask_paras.uppercases {
-        // convert to uppercases
-        read.seq().to_ascii_uppercase()
+        read.seq().to_ascii_uppercase() // convert all to uppercases
     } else {
         read.seq().to_vec()
     };
     match mask_paras.mask_char {
-        Some(c) => {
-            // masked bases to char.
+        Some(c) => { 
             let c_u8 = c as u8;
             if mask_paras.lowercases_to_char {
                 for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                     if qual < mask_paras.q_low || mask_paras.q_high < qual {
                         *ch = c_u8; // mask bases by q_low and q_high
-                    } else if start <= i && i < end {
-                        *ch = c_u8; // mask bases by bed
                     } else if ch.is_ascii_lowercase() {
                         *ch = c_u8; // convert lowercase to char
+                    } else {
+                        let is_overlap = is_overlapping(i, bed_pos);
+                        if (mask_paras.mask_complement_region && !is_overlap)
+                            || (!mask_paras.mask_complement_region && is_overlap)
+                        {
+                            *ch = c_u8; // mask bases by bed
+                        }
                     }
                 }
             } else {
                 for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                     if qual < mask_paras.q_low || mask_paras.q_high < qual {
                         *ch = c_u8; // mask bases by q_low and q_high
-                    } else if start <= i && i < end {
-                        *ch = c_u8; // mask bases by bed
+                    } else {
+                        let is_overlap = is_overlapping(i, bed_pos);
+                        if (mask_paras.mask_complement_region && !is_overlap)
+                            || (!mask_paras.mask_complement_region && is_overlap)
+                        {
+                            *ch = c_u8; // mask bases by bed
+                        }
                     }
                 }
             }
         }
         None => {
-            // masked bases to lowercases.
             for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
                 if qual < mask_paras.q_low || mask_paras.q_high < qual {
                     *ch = ch.to_ascii_lowercase(); // mask bases by q_low and q_high
-                } else if start <= i && i < end {
-                    *ch = ch.to_ascii_lowercase(); // mask bases by bed
+                } else {
+                    let is_overlap = is_overlapping(i, bed_pos);
+                    if (mask_paras.mask_complement_region && !is_overlap)
+                        || (!mask_paras.mask_complement_region && is_overlap)
+                    {
+                        *ch = ch.to_ascii_lowercase(); // mask bases by bed
+                    }
                 }
             }
         }
@@ -303,7 +316,7 @@ fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
         false
     };
     let seq_wo_n: bool = if filter_rule.drop_ambigous_seq {
-        !read.seq().contains(&78_u8) // seq not containing N
+        !read.seq().iter().any(|&c|dna::get_dna_idx_from_u8(c) > 3) // not containing char other than ATCGatcg 
     } else {
         true
     };
@@ -320,15 +333,15 @@ mod tests {
 
     #[test]
     fn test_modify_qual() {
-        let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaa");
+        let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"gfryremb[trdg");
         // [01] no modify
         let oparas = OutArgs::new(0, None, false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
-        assert_eq!(&out_qual, b"!(*AAAABbbaaa");
+        assert_eq!(&out_qual, b"gfryremb[trdg");
         // [02] check output_qual_shift
-        let oparas = OutArgs::new(20, None, false, false, false, false, None);
+        let oparas = OutArgs::new(10, None, false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
-        assert_eq!(&out_qual, b"5<>UUUUVvvuuu");
+        assert_eq!(&out_qual, b"]\\hoh[cXQjhZ]");
         // [02] check output_qual_shift
         let oparas = OutArgs::new(0, Some('T'), false, false, false, false, None);
         let out_qual = modify_qual(&record, &oparas);
@@ -337,43 +350,49 @@ mod tests {
     #[test]
     fn test_modify_seq() {
         let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
-        let mut bed_map: HashMap<String, [usize; 2]> = HashMap::new();
+        let mut bed_map: HashMap<String, Vec<[usize; 2]>> = HashMap::new();
 
         // [01] no modify
         let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"ATCGATcgACTTG");
+        assert_eq!(&out_seq, b"ATCGATcgACTTG", "[err01]");
         // [02] check mask_char + lowrcases_to_char
         let mparas = MaskParas::new(Some('N'), false, true, 0, 255, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"ATCGATNNACTTG");
+        assert_eq!(&out_seq, b"ATCGATNNACTTG", "[err02]");
         // [03] check uppercases
         let mparas = MaskParas::new(None, true, false, 0, 255, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"ATCGATCGACTTG");
+        assert_eq!(&out_seq, b"ATCGATCGACTTG", "[err03]");
         // [04] check q_low and q_high
         let mparas = MaskParas::new(None, false, false, 20 + 33, 255, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"atcGATcgACTTG");
+        assert_eq!(&out_seq, b"atcGATcgACTTG", "[err04]");
         let mparas = MaskParas::new(None, false, false, 0, 85 + 33, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"ATCGATcgACTTg");
+        assert_eq!(&out_seq, b"ATCGATcgACTTg", "[err05-1]");
         // [05] check q_low and q_high + mask_char and lowercases_to_char
         let mparas = MaskParas::new(Some('N'), false, false, 20 + 33, 85 + 33, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"NNNGATcgACTTN");
+        assert_eq!(&out_seq, b"NNNGATcgACTTN", "[err05-2]");
         let mparas = MaskParas::new(Some('N'), false, true, 20 + 33, 85 + 33, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"NNNGATNNACTTN");
-        // [05] check q_low and q_high + uppercases
+        assert_eq!(&out_seq, b"NNNGATNNACTTN", "[err05-3]");
+        // [06] check q_low and q_high + uppercases
         let mparas = MaskParas::new(None, true, false, 20 + 33, 85 + 33, &None, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"atcGATCGACTTg");
-        // [06] check mask by bed
-        bed_map.insert("SEQ_ID_1".to_string(), [5, 10]);
-        let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
+        assert_eq!(&out_seq, b"atcGATCGACTTg", "[err06]");
+        // [07] check mask by bed
+        let bed_path = Some("test.bed".to_string());
+        bed_map.insert("SEQ_ID_1".to_string(), vec![[5, 10]]);
+
+        let mparas = MaskParas::new(None, false, false, 0, 255, &bed_path, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map);
-        assert_eq!(&out_seq, b"ATCGAtcgacTTG");
+        assert_eq!(&out_seq, b"ATCGAtcgacTTG", "[err07]");
+        // [08] checl mask by complement region
+        let mparas = MaskParas::new(None, false, false, 0, 255, &bed_path, true);
+        let out_seq = modify_seq(&record, &mparas, &bed_map);
+        assert_eq!(&out_seq, b"atcgaTcgACttg", "[err08]");
     }
     #[test]
     fn test_filter_read() {
