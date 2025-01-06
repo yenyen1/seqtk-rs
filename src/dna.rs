@@ -54,3 +54,10 @@ pub fn get_dna_idx_from_u8(s: u8) -> usize {
 pub fn complement(s: &u8) -> u8 {
     COMP_TRANS[*s as usize]
 }
+
+pub fn revcomp(seq: &mut [u8]) {
+    for c in seq.iter_mut() {
+        *c = complement(c);
+    }
+    seq.reverse();
+}

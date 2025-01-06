@@ -77,7 +77,6 @@ fn format_duration(duration: u64) -> String {
     let minutes = seconds / 60;
     let hours = minutes / 60;
     let days = hours / 24;
-
     let formatted_time = format!(
         "{}-{:02}:{:02}:{:02}",
         days,
@@ -85,6 +84,5 @@ fn format_duration(duration: u64) -> String {
         minutes % 60,
         seconds % 60
     );
-
     formatted_time
 }

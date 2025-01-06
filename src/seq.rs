@@ -61,10 +61,6 @@ impl<'a> MaskParas<'a> {
             !(mask_complement_region && mask_regions.is_none()),
             "--mask-complment-region should effective with --mask-regions."
         );
-        // assert!(
-        //     !(uppercases && (lowercases_to_char || mask_char.is_some())),
-        //     "Should not use --uppercases with --lowercases_to_char or --mask-char together."
-        // );
         assert!(
             !(lowercases_to_char && mask_char.is_none()),
             "--lowercases-to-char should effective with --mask-char."
@@ -188,10 +184,12 @@ fn modify_and_print_read(
     }
 
     if out_paras.reverse_complement {
-        write_revcomp(fx_writer, read.id(), &mut seq, desc, &mut qual)?;
+        revcomp(&mut seq, &mut qual);
+        fx_writer.write(read.id(), &seq, desc, &qual)?;
     } else if out_paras.both_complement {
         fx_writer.write(read.id(), &seq, desc, &qual)?;
-        write_revcomp(fx_writer, read.id(), &mut seq, desc, &mut qual)?;
+        revcomp(&mut seq, &mut qual);
+        fx_writer.write(read.id(), &seq, desc, &qual)?;
     } else {
         fx_writer.write(read.id(), &seq, desc, &qual)?;
     }
@@ -204,20 +202,9 @@ fn add_newlines(data: &mut Vec<u8>, line_len: usize) {
         i += line_len + 1;
     }
 }
-fn write_revcomp(
-    fx_writer: &mut FxWriter,
-    id: &str,
-    seq: &mut [u8],
-    desc: Option<&str>,
-    qual: &mut [u8],
-) -> Result<(), std::io::Error> {
-    for c in seq.iter_mut() {
-        *c = dna::complement(c);
-    }
-    seq.reverse();
+fn revcomp(seq: &mut [u8],qual: &mut [u8]) {
+    dna::revcomp(seq);
     qual.reverse();
-    fx_writer.write(id, seq, desc, qual)?;
-    Ok(())
 }
 fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
     match out_paras.fake_fastq_quality {
@@ -428,5 +415,15 @@ mod tests {
         let mut seq = b"aaaaabbbbbcccccdddddeeeeefffff".to_vec();
         add_newlines(&mut seq, 5);
         assert_eq!(seq, b"aaaaa\nbbbbb\nccccc\nddddd\neeeee\nfffff");
+    }
+    #[test]
+    fn test_revcomp() {
+        let mut seq = b"AATTCCGG".to_vec();
+        let mut qual = b"<<((vv++".to_vec();
+
+        revcomp(&mut seq, &mut qual);
+        
+        assert_eq!(seq, b"CCGGAATT");
+        assert_eq!(qual, b"++vv((<<");
     }
 }

@@ -96,3 +96,4 @@ pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, 
 
     Ok(bed_map)
 }
+
