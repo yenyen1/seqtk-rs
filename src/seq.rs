@@ -1,5 +1,5 @@
 use crate::dna;
-use crate::utils::{self, FxWriter};
+use crate::utils::{self, FxWriter, RecordType};
 use bio::io::fastq::Record;
 use rand::rngs::StdRng;
 use rand::Rng;
@@ -118,45 +118,58 @@ impl OutArgs {
         }
     }
 }
-pub fn parse_fasta(
-    fa_path: &str,
+
+pub fn parse_fastx(
+    fx_path: &str,
     filter_rule: &FilterParas,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
-) -> Result<(), std::io::Error> {
-    Ok(())
-}
-pub fn parse_fastq(
-    fq_path: &str,
-    filter_rule: &FilterParas,
-    mask_paras: &MaskParas,
-    out_paras: &OutArgs,
+    is_fasta: bool,
 ) -> Result<(), std::io::Error> {
     let bed_map = match mask_paras.mask_regions {
         Some(bed_path) => utils::get_bed_map(bed_path)?,
         None => HashMap::new(),
     };
+    let mut fx_writer = FxWriter::new(out_paras.output_fasta);
     match filter_rule.sample_fraction {
         Some(frac) => {
             let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
-            let fx_iter = utils::new_fq_iterator(fq_path)?;
-            let mut fx_writer = FxWriter::new(out_paras.output_fasta);
-            for (i, record) in fx_iter.records().enumerate() {
-                let read = record.unwrap();
-                let filter = filter_read(i + 1, &read, filter_rule);
-                if filter && rng.gen::<f64>() <= frac {
-                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras, &bed_map)?;
+            if is_fasta {
+                let mut fa_iter = utils::new_fa_iterator(fx_path)?;
+            } else {
+                let mut fq_iter = utils::new_fq_iterator(fx_path)?;
+                for (i, record) in fq_iter.records().enumerate() {
+                    let read = record.unwrap();
+                    let filter = filter_read(i + 1, &read, filter_rule);
+                    if filter && rng.gen::<f64>() <= frac {
+                        modify_and_print_read(
+                            &mut fx_writer,
+                            &read,
+                            mask_paras,
+                            out_paras,
+                            &bed_map,
+                        )?;
+                    }
                 }
             }
         }
         None => {
-            let fx_iter = utils::new_fq_iterator(fq_path)?;
-            let mut fx_writer = FxWriter::new(out_paras.output_fasta);
-            for (i, record) in fx_iter.records().enumerate() {
-                let read = record.unwrap();
-                let filtered_read = filter_read(i + 1, &read, filter_rule);
-                if filtered_read {
-                    modify_and_print_read(&mut fx_writer, &read, mask_paras, out_paras, &bed_map)?;
+            let fx_iter = utils::new_fq_iterator(fx_path)?;
+            if is_fasta {
+                let mut fa_iter = utils::new_fa_iterator(fx_path)?;
+            } else {
+                for (i, record) in fx_iter.records().enumerate() {
+                    let read = record.unwrap();
+                    let filtered_read = filter_read(i + 1, &read, filter_rule);
+                    if filtered_read {
+                        modify_and_print_read(
+                            &mut fx_writer,
+                            &read,
+                            mask_paras,
+                            out_paras,
+                            &bed_map,
+                        )?;
+                    }
                 }
             }
         }
@@ -165,7 +178,7 @@ pub fn parse_fastq(
 }
 fn modify_and_print_read(
     fx_writer: &mut FxWriter,
-    read: &Record,
+    read: &dyn RecordType,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
     bed_map: &HashMap<String, Vec<[usize; 2]>>,
@@ -202,11 +215,11 @@ fn add_newlines(data: &mut Vec<u8>, line_len: usize) {
         i += line_len + 1;
     }
 }
-fn revcomp(seq: &mut [u8],qual: &mut [u8]) {
+fn revcomp(seq: &mut [u8], qual: &mut [u8]) {
     dna::revcomp(seq);
     qual.reverse();
 }
-fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
+fn modify_qual(read: &dyn RecordType, out_paras: &OutArgs) -> Vec<u8> {
     match out_paras.fake_fastq_quality {
         Some(fake_qual) => {
             vec![fake_qual as u8; read.seq().len()]
@@ -224,7 +237,7 @@ fn modify_qual(read: &Record, out_paras: &OutArgs) -> Vec<u8> {
     }
 }
 fn modify_seq(
-    read: &Record,
+    read: &dyn RecordType,
     mask_paras: &MaskParas,
     bed_map: &HashMap<String, Vec<[usize; 2]>>,
 ) -> Vec<u8> {
@@ -241,7 +254,7 @@ fn modify_seq(
         read.seq().to_vec()
     };
     match mask_paras.mask_char {
-        Some(c) => { 
+        Some(c) => {
             let c_u8 = c as u8;
             if mask_paras.lowercases_to_char {
                 for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
@@ -290,7 +303,7 @@ fn modify_seq(
     }
     seq
 }
-fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
+fn filter_read(i: usize, read: &dyn RecordType, filter_rule: &FilterParas) -> bool {
     let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
         if filter_rule.output_even_reads {
             i % 2 == 0
@@ -303,7 +316,7 @@ fn filter_read(i: usize, read: &Record, filter_rule: &FilterParas) -> bool {
         false
     };
     let seq_wo_n: bool = if filter_rule.drop_ambigous_seq {
-        !read.seq().iter().any(|&c|dna::get_dna_idx_from_u8(c) > 3) // not containing char other than ATCGatcg 
+        !read.seq().iter().any(|&c| dna::get_dna_idx_from_u8(c) > 3) // not containing char other than ATCGatcg
     } else {
         true
     };
@@ -422,7 +435,7 @@ mod tests {
         let mut qual = b"<<((vv++".to_vec();
 
         revcomp(&mut seq, &mut qual);
-        
+
         assert_eq!(seq, b"CCGGAATT");
         assert_eq!(qual, b"++vv((<<");
     }
