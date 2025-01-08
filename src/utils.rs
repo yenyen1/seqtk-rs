@@ -1,9 +1,8 @@
 use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
-use rayon::{prelude::*, result};
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs::{File, OpenOptions};
-use std::hash::Hash;
 use std::io::{self, BufRead, BufReader, BufWriter, Stdout};
 use std::path::Path;
 
@@ -130,39 +129,40 @@ pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, 
             Err(e) => eprintln!("Error reading line: {}", e),
         }
     }
+    // Merge overlapping intervals and store the results in a Vec
     let result_map = merge_bed(&bed_map);
     Ok(result_map)
 }
 
 fn merge_bed(bed_map: &HashMap<String, HashSet<[usize; 2]>>) -> HashMap<String, Vec<[usize; 2]>> {
-    // Merge overlapping intervals and store the results in a Vec
-    let mut result_map: HashMap<String, Vec<[usize; 2]>> = HashMap::new();
-    for (name, intervals) in bed_map.iter() {
-        let mut intervals: Vec<[usize; 2]> = intervals.iter().cloned().collect();
-        if intervals.len() == 1 {
-            result_map.insert(name.to_string(), intervals);
-        } else {
-            intervals.sort_unstable_by(|a, b| a[0].cmp(&b[0]));
-            let mut merged_intervals = Vec::new();
-            for i in 1..intervals.len() {
-                if intervals[i - 1][1] < intervals[i][0] {
-                    merged_intervals.push(intervals[i - 1]);
-                } else {
-                    intervals[i][0] = intervals[i - 1][0];
+    let result_map: HashMap<String, Vec<[usize; 2]>> = bed_map
+        .par_iter()
+        .map(|(name, intervals)| {
+            let mut intervals: Vec<[usize; 2]> = intervals.iter().cloned().collect();
+            if intervals.len() == 1 {
+                return (name.to_string(), intervals);
+            } else {
+                intervals.sort_unstable_by(|a, b| a[0].cmp(&b[0]));
+                let mut merged_intervals = Vec::new();
+                for i in 1..intervals.len() {
+                    if intervals[i - 1][1] < intervals[i][0] {
+                        merged_intervals.push(intervals[i - 1]);
+                    } else {
+                        intervals[i][0] = intervals[i - 1][0];
+                    }
                 }
+                merged_intervals.push(intervals[intervals.len() - 1]);
+                return (name.to_string(), merged_intervals);
             }
-            merged_intervals.push(intervals[intervals.len() - 1]);
-            result_map.insert(name.to_string(), merged_intervals);
-        }
-    }
-
+        })
+        .collect();
     result_map
 }
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
     use crate::utils::merge_bed;
+    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn test_merge_bed() {
