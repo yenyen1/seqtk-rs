@@ -119,7 +119,7 @@ pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, 
                     {
                         bed_map
                             .entry(name)
-                            .or_insert_with(HashSet::new)
+                            .or_default()
                             .insert([start, end]);
                     } else {
                         eprintln!("Error parsing start or end for line: {}", line_content);
@@ -133,14 +133,13 @@ pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, 
     let result_map = merge_bed(&bed_map);
     Ok(result_map)
 }
-
 fn merge_bed(bed_map: &HashMap<String, HashSet<[usize; 2]>>) -> HashMap<String, Vec<[usize; 2]>> {
     let result_map: HashMap<String, Vec<[usize; 2]>> = bed_map
         .par_iter()
         .map(|(name, intervals)| {
             let mut intervals: Vec<[usize; 2]> = intervals.iter().cloned().collect();
             if intervals.len() == 1 {
-                return (name.to_string(), intervals);
+                (name.to_string(), intervals)
             } else {
                 intervals.sort_unstable_by(|a, b| a[0].cmp(&b[0]));
                 let mut merged_intervals = Vec::new();
@@ -152,17 +151,32 @@ fn merge_bed(bed_map: &HashMap<String, HashSet<[usize; 2]>>) -> HashMap<String, 
                     }
                 }
                 merged_intervals.push(intervals[intervals.len() - 1]);
-                return (name.to_string(), merged_intervals);
+                (name.to_string(), merged_intervals)
             }
         })
         .collect();
     result_map
 }
+pub fn is_overlapping(pos: usize, bed_pos: &[[usize; 2]]) -> (bool, usize) { // (is_overlap, end_idx)
+    if bed_pos.is_empty() {
+        (false, 0)
+    } else {
+        for (idx, &range) in bed_pos.iter().enumerate() {
+            if range[1] < pos {
+            } else if pos < range[1] && range[0] <= pos {
+                return (true, idx) // If there's an overlap, return the index of the interval
+            } else {
+                return (false, idx)
+            }
+        }
+        (false, bed_pos.len())
+    }
+}
 
 #[cfg(test)]
 mod tests {
-    use crate::utils::merge_bed;
     use std::collections::{HashMap, HashSet};
+    use super::*;
 
     #[test]
     fn test_merge_bed() {
@@ -172,12 +186,21 @@ mod tests {
             "id_2".to_string(),
             HashSet::from([[13, 21], [31, 35], [19, 23], [6, 10], [30, 32], [41, 45]]),
         );
-        println!("{:?}", bed_map);
         let result_map = merge_bed(&bed_map);
-        println!("{:?}", result_map);
+
         let id_1_bed = result_map.get("id_1").unwrap();
         let id_2_bed = result_map.get("id_2").unwrap();
         assert_eq!(*id_1_bed, vec![[1, 10]]);
         assert_eq!(*id_2_bed, vec![[6, 10], [13, 23], [30, 35], [41, 45]]);
+    }
+    #[test]
+    fn test_is_overlapping() {
+        let bed_pos = vec![[6, 10], [13, 23], [30, 35], [41, 45]];
+        let result = is_overlapping(11, &bed_pos[0..]);
+        assert_eq!(result, (false, 1));
+        let result = is_overlapping(31, &bed_pos[1..]);
+        assert_eq!(result, (true, 1));
+        let result = is_overlapping(32, &bed_pos[2..]);
+        assert_eq!(result, (true, 0));
     }
 }

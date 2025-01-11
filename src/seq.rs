@@ -135,7 +135,7 @@ pub fn parse_fastx(
     let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
 
     if is_fasta {
-        let mut fa_iter = utils::new_fa_iterator(fx_path)?;
+        let fa_iter = utils::new_fa_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(out_paras.output_fasta);
         for (i, record) in fa_iter.records().enumerate() {
             if sampling && rng.gen::<f64>() > sampling_frac {
@@ -155,7 +155,7 @@ pub fn parse_fastx(
             }
         }
     } else {
-        let mut fq_iter = utils::new_fq_iterator(fx_path)?;
+        let fq_iter = utils::new_fq_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(out_paras.output_fasta);
         for (i, record) in fq_iter.records().enumerate() {
             if sampling && rng.gen::<f64>() > sampling_frac {
@@ -246,11 +246,6 @@ fn modify_seq(
     bed_map: &HashMap<String, Vec<[usize; 2]>>,
     is_fasta: bool,
 ) -> Vec<u8> {
-    fn is_overlapping(pos: usize, bed_pos: &Vec<[usize; 2]>) -> bool {
-        bed_pos
-            .iter()
-            .any(|&range| range[0] <= pos && pos < range[1])
-    }
     let default_bed_pos = vec![[usize::MAX, 0]];
     let bed_pos = bed_map.get(read.id()).unwrap_or(&default_bed_pos);
     let mut seq = if mask_paras.uppercases {
@@ -258,54 +253,60 @@ fn modify_seq(
     } else {
         read.seq().to_vec()
     };
+
     match mask_paras.mask_char {
         Some(c) => {
             let c_u8 = c as u8;
-            if mask_paras.lowercases_to_char {
-                if is_fasta {
+            let mut cur_idx: usize = 0;
+            seq.iter_mut().enumerate().for_each(|(i, ch)| {
+                if mask_paras.lowercases_to_char && ch.is_ascii_lowercase() {
+                    *ch = c_u8;
                 } else {
-                    for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
-                        if qual < mask_paras.q_low || mask_paras.q_high < qual {
-                            *ch = c_u8; // mask bases by q_low and q_high
-                        } else if ch.is_ascii_lowercase() {
-                            *ch = c_u8; // convert lowercase to char
-                        } else {
-                            let is_overlap = is_overlapping(i, bed_pos);
-                            if (mask_paras.mask_complement_region && !is_overlap)
-                                || (!mask_paras.mask_complement_region && is_overlap)
-                            {
-                                *ch = c_u8; // mask bases by bed
-                            }
-                        }
+                    let (is_overlap, c_idx) = utils::is_overlapping(i, &bed_pos[cur_idx..]);
+                    cur_idx += c_idx;
+                    if (is_overlap && !mask_paras.mask_complement_region)
+                        || (!is_overlap && mask_paras.mask_complement_region)
+                    {
+                        *ch = c_u8;
                     }
                 }
-            } else {
-                for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
-                    if qual < mask_paras.q_low || mask_paras.q_high < qual {
-                        *ch = c_u8; // mask bases by q_low and q_high
-                    } else {
-                        let is_overlap = is_overlapping(i, bed_pos);
-                        if (mask_paras.mask_complement_region && !is_overlap)
-                            || (!mask_paras.mask_complement_region && is_overlap)
-                        {
-                            *ch = c_u8; // mask bases by bed
-                        }
-                    }
-                }
-            }
+            })
         }
         None => {
-            for (i, (&qual, ch)) in read.qual().iter().zip(seq.iter_mut()).enumerate() {
-                if qual < mask_paras.q_low || mask_paras.q_high < qual {
-                    *ch = ch.to_ascii_lowercase(); // mask bases by q_low and q_high
-                } else {
-                    let is_overlap = is_overlapping(i, bed_pos);
-                    if (mask_paras.mask_complement_region && !is_overlap)
-                        || (!mask_paras.mask_complement_region && is_overlap)
-                    {
-                        *ch = ch.to_ascii_lowercase(); // mask bases by bed
-                    }
+            let mut cur_idx: usize = 0;
+            seq.iter_mut().enumerate().for_each(|(i, ch)| {
+                let (is_overlap, c_idx) = utils::is_overlapping(i, &bed_pos[cur_idx..]);
+                cur_idx += c_idx;
+                if (is_overlap && !mask_paras.mask_complement_region)
+                    || (!is_overlap && mask_paras.mask_complement_region)
+                {
+                    *ch = ch.to_ascii_lowercase();
                 }
+            })
+        }
+    }
+    if !is_fasta {
+        match mask_paras.mask_char {
+            Some(c) => {
+                let c_u8 = c as u8;
+                read.qual()
+                    .iter()
+                    .zip(seq.iter_mut())
+                    .for_each(|(&qual, ch)| {
+                        if qual < mask_paras.q_low || mask_paras.q_high < qual {
+                            *ch = c_u8; // mask bases by q_low and q_high
+                        }
+                    })
+            }
+            None => {
+                read.qual()
+                    .iter()
+                    .zip(seq.iter_mut())
+                    .for_each(|(&qual, ch)| {
+                        if qual < mask_paras.q_low || mask_paras.q_high < qual {
+                            *ch = ch.to_ascii_lowercase(); // mask bases by q_low and q_high
+                        }
+                    })
             }
         }
     }
