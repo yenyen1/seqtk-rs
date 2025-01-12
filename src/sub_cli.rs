@@ -56,7 +56,7 @@ pub struct SeqArgs {
     /// Set the seed for the random number generator. This value ensures reproducibility of the sampling process. (This option takes effect only when used in conjunction with --sample-fraction / -f.) [default: 4]
     pub random_seed: Option<u64>,
     #[arg(short = 'f', long)]
-    /// Specify the fraction of the total dataset to sample. The value is a FLOAT between 0 and 1. For example, a value of 0.1 will sample 10% of the data. [default: 1.]
+    /// Specify the fraction of the total dataset to sample. The value is a FLOAT between 0 and 1. For example, a value of 0.1 will sample 10% of the data. 
     pub sample_fraction: Option<f64>,
 
     #[arg(short = 'r', long)]
@@ -79,7 +79,7 @@ pub struct SeqArgs {
     /// The quality scores are represented as characters with ASCII values equal to the score plus a base offset (asciibases). [default: 33]
     pub ascii_bases: Option<u8>,
     #[arg(long)]
-    /// Output the quality score to an offset of 33 (Effective only when --ascii-bases is not 33.).
+    /// Output the quality score to an offset of 33 (Effective only when --ascii-bases is not 33)
     pub output_qual_33: bool,
     #[arg(long)]
     /// Mask bases with a quality score lower than Q_LOW. [default: 0]

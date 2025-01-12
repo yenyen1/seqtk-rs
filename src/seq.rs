@@ -130,7 +130,7 @@ pub fn parse_fastx(
         None => HashMap::new(),
     };
 
-    let sampling = filter_rule.sample_fraction.is_none();
+    let sampling = filter_rule.sample_fraction.is_some();
     let sampling_frac = filter_rule.sample_fraction.unwrap_or(1.0);
     let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
 
@@ -315,9 +315,9 @@ fn modify_seq(
 fn filter_read(i: usize, read: &dyn RecordType, filter_rule: &FilterParas) -> bool {
     let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
         if filter_rule.output_even_reads {
-            i % 2 == 0
-        } else if filter_rule.output_odd_reads {
             i % 2 == 1
+        } else if filter_rule.output_odd_reads {
+            i % 2 == 0
         } else {
             true
         }
@@ -422,15 +422,15 @@ mod tests {
 
         // [03] output odd read
         let fparas = FilterParas::new(0, true, true, false, 0, None);
-        assert_eq!(filter_read(1, &record, &fparas), true);
+        assert_eq!(filter_read(0, &record, &fparas), true);
         let fparas = FilterParas::new(0, true, true, false, 0, None);
-        assert_eq!(filter_read(0, &record, &fparas), false);
+        assert_eq!(filter_read(1, &record, &fparas), false);
 
         // [04] output even read
         let fparas = FilterParas::new(0, true, false, true, 0, None);
-        assert_eq!(filter_read(2, &record, &fparas), true);
+        assert_eq!(filter_read(3, &record, &fparas), true);
         let fparas = FilterParas::new(0, true, false, true, 0, None);
-        assert_eq!(filter_read(3, &record, &fparas), false);
+        assert_eq!(filter_read(4, &record, &fparas), false);
     }
     #[test]
     fn test_add_newlines() {

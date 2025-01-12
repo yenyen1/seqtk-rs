@@ -44,14 +44,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 seq.uppercases,
                 seq.lowercases_to_char,
                 seq.q_low.unwrap_or(0) + ascii_bases,
-                seq.q_high.unwrap_or(222) + ascii_bases,
+                seq.q_high.unwrap_or(255 - ascii_bases) + ascii_bases,
                 &seq.mask_regions,
                 seq.mask_complement_region,
             );
+            let output_fasta =
+                if !seq.output_fasta && seq.in_fa.is_some() && seq.fake_fastq_quality.is_none() {
+                    true
+                } else {
+                    seq.output_fasta
+                };
             let out_paras = seq::OutArgs::new(
                 out_qual_shift,
                 seq.fake_fastq_quality,
-                seq.output_fasta,
+                output_fasta,
                 seq.reverse_complement,
                 seq.both_complement,
                 seq.trim_header,

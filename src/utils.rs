@@ -117,10 +117,7 @@ pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, 
                     if let (Ok(start), Ok(end)) =
                         (columns[1].parse::<usize>(), columns[2].parse::<usize>())
                     {
-                        bed_map
-                            .entry(name)
-                            .or_default()
-                            .insert([start, end]);
+                        bed_map.entry(name).or_default().insert([start, end]);
                     } else {
                         eprintln!("Error parsing start or end for line: {}", line_content);
                     }
@@ -157,16 +154,17 @@ fn merge_bed(bed_map: &HashMap<String, HashSet<[usize; 2]>>) -> HashMap<String, 
         .collect();
     result_map
 }
-pub fn is_overlapping(pos: usize, bed_pos: &[[usize; 2]]) -> (bool, usize) { // (is_overlap, end_idx)
+pub fn is_overlapping(pos: usize, bed_pos: &[[usize; 2]]) -> (bool, usize) {
+    // (is_overlap, end_idx)
     if bed_pos.is_empty() {
         (false, 0)
     } else {
         for (idx, &range) in bed_pos.iter().enumerate() {
             if range[1] < pos {
             } else if pos < range[1] && range[0] <= pos {
-                return (true, idx) // If there's an overlap, return the index of the interval
+                return (true, idx); // If there's an overlap, return the index of the interval
             } else {
-                return (false, idx)
+                return (false, idx);
             }
         }
         (false, bed_pos.len())
@@ -175,8 +173,8 @@ pub fn is_overlapping(pos: usize, bed_pos: &[[usize; 2]]) -> (bool, usize) { // 
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
     use super::*;
+    use std::collections::{HashMap, HashSet};
 
     #[test]
     fn test_merge_bed() {
