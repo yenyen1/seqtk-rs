@@ -1,4 +1,5 @@
 # seqtk-rs
+This is a sequence processing tool written in Rust that replicates the core functionality of seqtk for manipulating FASTA/FASTQ files.
 
 ## Installation
 ```sh
