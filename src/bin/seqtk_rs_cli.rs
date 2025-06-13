@@ -1,5 +1,5 @@
 use clap::Parser;
-use seqtk_rs::{fq_check, seq, sub_cli};
+use seqtk_rs::{fq_check, seq, sub_cli, subsample};
 use std::time::Instant;
 
 #[derive(Parser)]
@@ -24,14 +24,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 fqchk.ascii_base.unwrap_or(33),
             )?;
         }
+        sub_cli::Commands::Sample(sample) => {
+            let sample_paras = subsample::SampleParas::new(
+                sample.random_seed.unwrap_or(11),
+                sample.sample_fraction,
+            );
+            if let Some(in_fq) = &sample.in_fq {
+                subsample::subsample_fastx(&in_fq, &sample_paras, false)?;
+            }
+            if let Some(in_fa) = &sample.in_fa {
+                subsample::subsample_fastx(&in_fa, &sample_paras, true)?;
+            }
+        }
         sub_cli::Commands::Seq(seq) => {
             let filter_rule = seq::FilterParas::new(
                 seq.mini_seq_length.unwrap_or(0),
                 seq.drop_ambigous_seq,
                 seq.output_even,
                 seq.output_odd,
-                seq.random_seed.unwrap_or(11),
-                seq.sample_fraction,
             );
             let ascii_bases = seq.ascii_bases.unwrap_or(33);
             let out_qual_shift = if seq.output_qual_33 {

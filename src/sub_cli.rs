@@ -10,10 +10,12 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
+    /// Common transformation of FASTA/Q
+    Seq(SeqArgs),
     /// fastq QC summary
     Fqchk(FqchkArgs),
-    /// Seq
-    Seq(SeqArgs),
+    /// Random Sampling given seed and fraction
+    Sample(SampleArgs),
 }
 
 #[derive(Args)]
@@ -29,6 +31,22 @@ pub struct FqchkArgs {
     #[arg(short, long)]
     /// ascii value [default: 33]
     pub ascii_base: Option<u8>,
+}
+
+#[derive(Args)]
+pub struct SampleArgs {
+    #[arg(short = 'I', long)]
+    /// Input fastq path
+    pub in_fq: Option<String>,
+    #[arg(short = 'A', long)]
+    /// Input fasta path
+    pub in_fa: Option<String>,
+    #[arg(short = 's', long)]
+    /// Set the seed for the random number generator. This value ensures reproducibility of the sampling process. (This option takes effect only when used in conjunction with --sample-fraction / -f.) [default: 4]
+    pub random_seed: Option<u64>,
+    #[arg(short = 'f', long)]
+    /// Specify the fraction of the total dataset to sample. The value is a FLOAT between 0 and 1. For example, a value of 0.1 will sample 10% of the data.
+    pub sample_fraction: Option<f64>,
 }
 
 #[derive(Args)]
@@ -52,12 +70,6 @@ pub struct SeqArgs {
     #[arg(short = '2', long)]
     /// Output only the reads from even-numbered records (2n-th).
     pub output_even: bool,
-    #[arg(short = 's', long)]
-    /// Set the seed for the random number generator. This value ensures reproducibility of the sampling process. (This option takes effect only when used in conjunction with --sample-fraction / -f.) [default: 4]
-    pub random_seed: Option<u64>,
-    #[arg(short = 'f', long)]
-    /// Specify the fraction of the total dataset to sample. The value is a FLOAT between 0 and 1. For example, a value of 0.1 will sample 10% of the data. 
-    pub sample_fraction: Option<f64>,
 
     #[arg(short = 'r', long)]
     /// reverse complement

@@ -9,11 +9,11 @@ homepage = "https://github.com/yenyen1/seqtk-rs"
 repository = "https://github.com/yenyen1/seqtk-rs"
 
 [dependencies]
-bio = "2.0.3"
+bio = "2.3.0"
 clap = { version = "4.5.24", features = ["derive"] }
-flate2 = "1.0.35"
+flate2 = "1.1.2"
 ndarray = {version = "0.16.1", features = ["rayon"]}
-rand = "0.8.5"
+rand = "0.9.1"
 rayon = "1.10.0"
 
 [[bin]]

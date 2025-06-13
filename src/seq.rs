@@ -1,18 +1,13 @@
 use crate::dna;
 use crate::utils::{self, FxWriter, RecordType};
-use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
+
 use std::collections::HashMap;
 
 pub struct FilterParas {
-    // fastq
-    mini_seq_length: usize,       // fq(V), fa(need to add)
-    drop_ambigous_seq: bool,      // fq(V), fa(need to add)
-    output_odd_reads: bool,       // fq, fa
-    output_even_reads: bool,      // fq, fa
-    random_seed: u64,             // fq
-    sample_fraction: Option<f64>, // fq
+    mini_seq_length: usize,  // fq(V), fa(need to add)
+    drop_ambigous_seq: bool, // fq(V), fa(need to add)
+    output_odd_reads: bool,  // fq, fa
+    output_even_reads: bool, // fq, fa
 }
 impl FilterParas {
     pub fn new(
@@ -20,8 +15,6 @@ impl FilterParas {
         drop_ambigous_seq: bool,
         output_odd_reads: bool,
         output_even_reads: bool,
-        random_seed: u64,
-        sample_fraction: Option<f64>,
     ) -> Self {
         assert!(
             !(output_even_reads && output_odd_reads),
@@ -32,8 +25,6 @@ impl FilterParas {
             drop_ambigous_seq,
             output_odd_reads,
             output_even_reads,
-            random_seed,
-            sample_fraction,
         }
     }
 }
@@ -130,17 +121,10 @@ pub fn parse_fastx(
         None => HashMap::new(),
     };
 
-    let sampling = filter_rule.sample_fraction.is_some();
-    let sampling_frac = filter_rule.sample_fraction.unwrap_or(1.0);
-    let mut rng = StdRng::seed_from_u64(filter_rule.random_seed);
-
     if is_fasta {
         let fa_iter = utils::new_fa_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(out_paras.output_fasta);
         for (i, record) in fa_iter.records().enumerate() {
-            if sampling && rng.gen::<f64>() > sampling_frac {
-                continue;
-            }
             let read = record.unwrap();
             let filter = filter_read(i + 1, &read, filter_rule);
             if filter {
@@ -158,9 +142,6 @@ pub fn parse_fastx(
         let fq_iter = utils::new_fq_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(out_paras.output_fasta);
         for (i, record) in fq_iter.records().enumerate() {
-            if sampling && rng.gen::<f64>() > sampling_frac {
-                continue;
-            }
             let read = record.unwrap();
             let filter = filter_read(i + 1, &read, filter_rule);
             if filter {
@@ -408,28 +389,28 @@ mod tests {
         let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATCGACTTG", b"!!<AAAABbbaab");
 
         // [01] check mini_seq_length
-        let fparas = FilterParas::new(10, false, false, false, 0, None);
+        let fparas = FilterParas::new(10, false, false, false);
         assert_eq!(filter_read(0, &record, &fparas), true);
-        let fparas = FilterParas::new(50, false, false, false, 0, None);
+        let fparas = FilterParas::new(50, false, false, false);
         assert_eq!(filter_read(0, &record, &fparas), false);
 
         // [02] check drop anbugous seq
-        let fparas = FilterParas::new(0, true, false, false, 0, None);
+        let fparas = FilterParas::new(0, true, false, false);
         assert_eq!(filter_read(0, &record, &fparas), true);
         let record2 = Record::with_attrs("@SEQ_ID_2", None, b"ANCGATCGACTTG", b"!!<AAAABbbaab");
-        let fparas = FilterParas::new(0, true, false, false, 0, None);
+        let fparas = FilterParas::new(0, true, false, false);
         assert_eq!(filter_read(0, &record2, &fparas), false);
 
         // [03] output odd read
-        let fparas = FilterParas::new(0, true, true, false, 0, None);
+        let fparas = FilterParas::new(0, true, true, false);
         assert_eq!(filter_read(0, &record, &fparas), true);
-        let fparas = FilterParas::new(0, true, true, false, 0, None);
+        let fparas = FilterParas::new(0, true, true, false);
         assert_eq!(filter_read(1, &record, &fparas), false);
 
         // [04] output even read
-        let fparas = FilterParas::new(0, true, false, true, 0, None);
+        let fparas = FilterParas::new(0, true, false, true);
         assert_eq!(filter_read(3, &record, &fparas), true);
-        let fparas = FilterParas::new(0, true, false, true, 0, None);
+        let fparas = FilterParas::new(0, true, false, true);
         assert_eq!(filter_read(4, &record, &fparas), false);
     }
     #[test]
