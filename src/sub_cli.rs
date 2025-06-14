@@ -58,17 +58,17 @@ pub struct SeqArgs {
     /// Input fasta path
     pub in_fa: Option<String>,
 
-    #[arg(short = 'l', long)]
-    /// Remove sequences shorter than INT. [default: 0]
+    #[arg(short = 'L', long)]
+    /// Remove sequences shorter than MINI_SEQ_LENGTH. [default: 0]
     pub mini_seq_length: Option<usize>,
     #[arg(short = 'N', long)]
     /// drop sequences containing ambiguous bases 'N'
     pub drop_ambigous_seq: bool,
     #[arg(short = '1', long)]
-    /// Output only the reads from odd-numbered records (1st, 3rd, 5th, etc.).
+    /// Output only the reads from odd-numbered (2n-1) records 
     pub output_odd: bool,
     #[arg(short = '2', long)]
-    /// Output only the reads from even-numbered records (2n-th).
+    /// Output only the reads from even-numbered (2n) records 
     pub output_even: bool,
 
     #[arg(short = 'r', long)]
@@ -78,28 +78,28 @@ pub struct SeqArgs {
     /// output both forward and reverse complement
     pub both_complement: bool,
     #[arg(long)]
-    /// force FASTA output (discard quality)
+    /// force output format to FASTA (discard quality)
     pub output_fasta: bool,
-    #[arg(long)]
-    /// drop comments at the header lines
+    #[arg(short= 'C', long)]
+    /// drop comments at the header lines (only keep the first word before first space)
     pub trim_header: bool,
-    #[arg(long)]
-    /// Number of characters per line for sequences and their corresponding quality values. [default: all on a single line]
+    #[arg(short = 'l', long)]
+    /// Number of characters per line for sequences and their corresponding quality values [default: all on a single line]
     pub line_len: Option<usize>,
 
-    #[arg(long)]
-    /// The quality scores are represented as characters with ASCII values equal to the score plus a base offset (asciibases). [default: 33]
+    #[arg(short = 'Q', long)]
+    /// The quality scores are represented as chars with ASCII values equal to the score plus a base offset ASCII_BASES [default: 33]
     pub ascii_bases: Option<u8>,
     #[arg(long)]
     /// Output the quality score to an offset of 33 (Effective only when --ascii-bases is not 33)
     pub output_qual_33: bool,
     #[arg(long)]
-    /// Mask bases with a quality score lower than Q_LOW. [default: 0]
+    /// Mask bases with a quality score lower than Q_LOW [default: 0]
     pub q_low: Option<u8>,
     #[arg(long)]
-    /// Mask bases with a quality score higher than Q_HIGH. [default: 255]
+    /// Mask bases with a quality score higher than Q_HIGH [default: 255]
     pub q_high: Option<u8>,
-    #[arg(long)]
+    #[arg(short = 'F', long)]
     /// Generate fake quality values using the specified CHAR.
     pub fake_fastq_quality: Option<char>,
 
@@ -113,10 +113,10 @@ pub struct SeqArgs {
     pub lowercases_to_char: bool,
 
     #[arg(long)]
-    /// Mask bases by converting them to CHAR. [default: convert to lowercase]
+    /// Mask bases by converting them to MASK_CHAR [default: convert to lowercase]
     pub mask_char: Option<char>,
     #[arg(short = 'M', long)]
-    /// Mask bases that overlap with the regions specified in the BED (0-based) file. [default: null]
+    /// Mask bases that overlap with the regions specified in the BED (0-based) file [default: null]
     pub mask_regions: Option<String>,
     #[arg(long)]
     /// Mask bases that do NOT overlap with the region specified in the BED (effective with --mask-regions / -M)

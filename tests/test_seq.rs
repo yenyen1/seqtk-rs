@@ -21,6 +21,7 @@ mod tests {
         let args: Vec<&str> = "seq -I tests/data/chr.fastq".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/chr.fastq").expect("");
+        print!("{}/n",output);
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 01");
         // 02 - mask
         let args: Vec<&str> =
@@ -50,7 +51,7 @@ mod tests {
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 05");
         // 06 - ascii bases
         let args: Vec<&str> =
-            "seq -I tests/data/long.fastq -l 1000 --ascii-bases 35 --output-qual-33"
+            "seq -I tests/data/long.fastq -L 1000 --ascii-bases 35 --output-qual-33"
                 .split_whitespace()
                 .collect();
         let output = run_program_with_args(&args);
@@ -87,7 +88,7 @@ mod tests {
         assert_eq!(output.as_bytes(), [], "[test] fq -> fa - 05");
         // 06 - ascii bases
         let args: Vec<&str> =
-            "seq -I tests/data/long.fastq -l 1000 --ascii-bases 35 --q-low 5 --output-fasta"
+            "seq -I tests/data/long.fastq -L 1000 --ascii-bases 35 --q-low 5 --output-fasta"
                 .split_whitespace()
                 .collect();
         let output = run_program_with_args(&args);
