@@ -1,4 +1,4 @@
-use clap::{Args, Parser, Subcommand, ArgGroup};
+use clap::{ArgGroup, Args, Parser, Subcommand};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
