@@ -1,8 +1,9 @@
-use clap::{Args, Parser, Subcommand};
+use clap::{Args, Parser, Subcommand, ArgGroup};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 #[command(propagate_version = true)]
+
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -34,6 +35,12 @@ pub struct FqchkArgs {
 }
 
 #[derive(Args)]
+#[command(group(
+    ArgGroup::new("exclusive_group")
+        .args(["in_fq", "in_fa"])
+        .required(true)
+        .multiple(false)
+))]
 pub struct SampleArgs {
     #[arg(short = 'I', long)]
     /// Input fastq path
@@ -50,6 +57,12 @@ pub struct SampleArgs {
 }
 
 #[derive(Args)]
+#[command(group(
+    ArgGroup::new("exclusive_group")
+        .args(["in_fq", "in_fa"])
+        .required(true)
+        .multiple(false)
+))]
 pub struct SeqArgs {
     #[arg(short = 'I', long)]
     /// Input fastq path

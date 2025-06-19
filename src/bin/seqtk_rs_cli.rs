@@ -2,14 +2,6 @@ use clap::Parser;
 use seqtk_rs::{fq_check, seq, sub_cli, subsample};
 use std::time::Instant;
 
-#[derive(Parser)]
-#[command(version, about, long_about = None)]
-#[command(propagate_version = true)]
-struct Cli {
-    #[command(subcommand)]
-    pub command: sub_cli::Commands,
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let cli = sub_cli::Cli::parse();
