@@ -21,7 +21,7 @@ mod tests {
         let args: Vec<&str> = "seq -I tests/data/chr.fastq".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/chr.fastq").expect("");
-        print!("{}/n",output);
+        print!("{}/n", output);
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 01");
         // 02 - mask
         let args: Vec<&str> =

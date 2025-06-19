@@ -65,10 +65,10 @@ pub struct SeqArgs {
     /// drop sequences containing ambiguous bases 'N'
     pub drop_ambigous_seq: bool,
     #[arg(short = '1', long)]
-    /// Output only the reads from odd-numbered (2n-1) records 
+    /// Output only the reads from odd-numbered (2n-1) records
     pub output_odd: bool,
     #[arg(short = '2', long)]
-    /// Output only the reads from even-numbered (2n) records 
+    /// Output only the reads from even-numbered (2n) records
     pub output_even: bool,
 
     #[arg(short = 'r', long)]
@@ -80,7 +80,7 @@ pub struct SeqArgs {
     #[arg(long)]
     /// force output format to FASTA (discard quality)
     pub output_fasta: bool,
-    #[arg(short= 'C', long)]
+    #[arg(short = 'C', long)]
     /// drop comments at the header lines (only keep the first word before first space)
     pub trim_header: bool,
     #[arg(short = 'l', long)]

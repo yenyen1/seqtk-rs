@@ -3,10 +3,10 @@ use crate::utils::{self, FxWriter, RecordType};
 use std::collections::HashMap;
 
 pub struct FilterParas {
-    mini_seq_length: usize,  
-    drop_ambigous_seq: bool, 
-    output_odd_reads: bool, 
-    output_even_reads: bool, 
+    mini_seq_length: usize,
+    drop_ambigous_seq: bool,
+    output_odd_reads: bool,
+    output_even_reads: bool,
 }
 impl FilterParas {
     pub fn new(
@@ -31,10 +31,10 @@ pub struct MaskParas<'a> {
     mask_char: Option<char>,
     uppercases: bool,
     lowercases_to_char: bool,
-    q_low: u8,                        // only for fq
-    q_high: u8,                       // only for fq
-    mask_regions: &'a Option<String>, 
-    mask_complement_region: bool, 
+    q_low: u8,  // only for fq
+    q_high: u8, // only for fq
+    mask_regions: &'a Option<String>,
+    mask_complement_region: bool,
 }
 impl<'a> MaskParas<'a> {
     pub fn new(
