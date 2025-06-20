@@ -1,5 +1,4 @@
-use crate::io;
-use crate::utils::FxWriter;
+use crate::io::{self, FxWriter};
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;

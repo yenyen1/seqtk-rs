@@ -1,5 +1,5 @@
 use bio::io::{fasta, fastq};
-use std::io::{self, Stdout};
+
 pub trait RecordType {
     fn seq(&self) -> &[u8];
     fn id(&self) -> &str;
@@ -34,34 +34,34 @@ impl RecordType for fastq::Record {
         self.qual()
     }
 }
-pub enum FxWriter {
-    Fasta(fasta::Writer<Stdout>),
-    Fastq(fastq::Writer<Stdout>),
-}
-impl FxWriter {
-    pub fn new(is_fasta: bool) -> FxWriter {
-        let std_out = io::stdout();
-        if is_fasta {
-            FxWriter::Fasta(fasta::Writer::new(std_out))
-        } else {
-            FxWriter::Fastq(fastq::Writer::new(std_out))
-        }
-    }
-    pub fn write(
-        &mut self,
-        id: &str,
-        seq: &[u8],
-        desc: Option<&str>,
-        qual: &[u8],
-    ) -> io::Result<()> {
-        match self {
-            FxWriter::Fasta(ref mut out) => {
-                out.write(id, desc, seq)?;
-            }
-            FxWriter::Fastq(ref mut out) => {
-                out.write(id, desc, seq, qual)?;
-            }
-        }
-        Ok(())
-    }
-}
+// pub enum FxWriter {
+//     Fasta(fasta::Writer<Stdout>),
+//     Fastq(fastq::Writer<Stdout>),
+// }
+// impl FxWriter {
+//     pub fn new(is_fasta: bool) -> FxWriter {
+//         let std_out = io::stdout();
+//         if is_fasta {
+//             FxWriter::Fasta(fasta::Writer::new(std_out))
+//         } else {
+//             FxWriter::Fastq(fastq::Writer::new(std_out))
+//         }
+//     }
+//     pub fn write(
+//         &mut self,
+//         id: &str,
+//         seq: &[u8],
+//         desc: Option<&str>,
+//         qual: &[u8],
+//     ) -> io::Result<()> {
+//         match self {
+//             FxWriter::Fasta(ref mut out) => {
+//                 out.write(id, desc, seq)?;
+//             }
+//             FxWriter::Fastq(ref mut out) => {
+//                 out.write(id, desc, seq, qual)?;
+//             }
+//         }
+//         Ok(())
+//     }
+// }

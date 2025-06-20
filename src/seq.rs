@@ -1,6 +1,7 @@
 use crate::bed::{self, BedMap};
-use crate::utils::{FxWriter, RecordType};
-use crate::{dna, io};
+use crate::dna;
+use crate::io::{self, FxWriter};
+use crate::utils::RecordType;
 
 pub struct FilterParas {
     mini_seq_length: usize,
@@ -92,7 +93,7 @@ pub fn parse_fastx(
     is_fasta: bool,
 ) -> Result<(), std::io::Error> {
     let bed_map = match mask_paras.mask_regions {
-        Some(bed_path) => io::get_bed_map(bed_path)?,
+        Some(bed_path) => bed::get_bed_map(bed_path)?,
         None => BedMap::new(),
     };
 
