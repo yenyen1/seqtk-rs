@@ -1,4 +1,5 @@
 use clap::{ArgGroup, Args, Parser, Subcommand};
+use colored::*;
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -136,34 +137,31 @@ pub struct SeqArgs {
     pub mask_complement_region: bool,
 }
 pub fn valiation_seq_args(args: &SeqArgs) -> Result<(), std::io::Error> {
-    let mut not_valid = false;
+    let mut errors = Vec::new();
     if args.output_even && args.output_odd {
-        eprintln!("Error: --output-even-reads and --output-odd-reads can not be used together.");
-        not_valid = true;
+        errors.push("--output-even-reads and --output-odd-reads can not be used together.");
     }
     if args.mask_complement_region && args.mask_regions.is_none() {
-        eprintln!("Error: --mask-complment-region requires --mask-regions.");
-        not_valid = true;
+        errors.push("--mask-complment-region requires --mask-regions.");
     }
     if args.lowercases_to_char && args.mask_char.is_none() {
-        eprintln!("Error: --lowercases-to-char requires --mask-char.");
-        not_valid = true;
+        errors.push("--lowercases-to-char requires --mask-char.");
     }
     if args.output_fasta && (args.output_qual_33 || args.fake_fastq_quality.is_some()) {
-        eprintln!(
-            "Error: --output-fasta can not be used with --output-qual-33 or --fake-fastq-quality."
+        errors.push(
+            "--output-fasta can not be used with --output-qual-33 or --fake-fastq-quality."
         );
-        not_valid = true;
     }
     if args.output_qual_33 && args.fake_fastq_quality.is_some() {
-        eprintln!("Error: --output-qual-33 and --fake-fastq-quality can not be used together.");
-        not_valid = true;
+        errors.push("--output-qual-33 and --fake-fastq-quality can not be used together.");
     }
     if args.reverse_complement && args.both_complement {
-        eprintln!("Error: --reverse-complement and --both-complement can not be used together.");
-        not_valid = true;
+        errors.push("--reverse-complement and --both-complement can not be used together.");
     }
-    if not_valid {
+    if !errors.is_empty() {
+        for error in errors {
+            eprintln!("{} {}", "error:".red().bold(), error);
+        }
         std::process::exit(1);
     }
     Ok(())
