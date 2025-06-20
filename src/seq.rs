@@ -15,10 +15,6 @@ impl FilterParas {
         output_odd_reads: bool,
         output_even_reads: bool,
     ) -> Self {
-        assert!(
-            !(output_even_reads && output_odd_reads),
-            "Should not use --output-even-reads and --output-odd-reads options together."
-        );
         FilterParas {
             mini_seq_length,
             drop_ambigous_seq,
@@ -46,14 +42,6 @@ impl<'a> MaskParas<'a> {
         mask_regions: &'a Option<String>,
         mask_complement_region: bool,
     ) -> Self {
-        assert!(
-            !(mask_complement_region && mask_regions.is_none()),
-            "--mask-complment-region should effective with --mask-regions."
-        );
-        assert!(
-            !(lowercases_to_char && mask_char.is_none()),
-            "--lowercases-to-char should effective with --mask-char."
-        );
         MaskParas {
             mask_char,
             uppercases,
@@ -84,18 +72,6 @@ impl OutArgs {
         trim_header: bool,
         line_len: Option<usize>,
     ) -> Self {
-        assert!(
-            !(output_fasta && (output_qual_shift != 0 || fake_fastq_quality.is_some())),
-            "Should not use --output-fasta with --output-qual-shift or --fake-fastq-quality."
-        );
-        assert!(
-            !(output_qual_shift != 0 && fake_fastq_quality.is_some()),
-            "Should not use --output-qual-shift and --fake-fastq-quality together."
-        );
-        assert!(
-            !(reverse_complement && both_complement),
-            "Should not use --reverse-complement and --both-complement together."
-        );
         OutArgs {
             output_qual_shift,
             fake_fastq_quality,

@@ -29,6 +29,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         sub_cli::Commands::Seq(seq) => {
+            sub_cli::valiation_seq_args(seq)?;
             let filter_rule = seq::FilterParas::new(
                 seq.mini_seq_length.unwrap_or(0),
                 seq.drop_ambigous_seq,

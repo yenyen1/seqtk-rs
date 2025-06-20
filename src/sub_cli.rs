@@ -135,3 +135,36 @@ pub struct SeqArgs {
     /// Mask bases that do NOT overlap with the region specified in the BED (effective with --mask-regions / -M)
     pub mask_complement_region: bool,
 }
+pub fn valiation_seq_args(args: &SeqArgs) -> Result<(), std::io::Error> {
+    let mut not_valid = false;
+    if args.output_even && args.output_odd {
+        eprintln!("Error: --output-even-reads and --output-odd-reads can not be used together.");
+        not_valid = true;
+    }
+    if args.mask_complement_region && args.mask_regions.is_none() {
+        eprintln!("Error: --mask-complment-region requires --mask-regions.");
+        not_valid = true;
+    }
+    if args.lowercases_to_char && args.mask_char.is_none() {
+        eprintln!("Error: --lowercases-to-char requires --mask-char.");
+        not_valid = true;
+    }
+    if args.output_fasta && (args.output_qual_33 || args.fake_fastq_quality.is_some()) {
+        eprintln!(
+            "Error: --output-fasta can not be used with --output-qual-33 or --fake-fastq-quality."
+        );
+        not_valid = true;
+    }
+    if args.output_qual_33 && args.fake_fastq_quality.is_some() {
+        eprintln!("Error: --output-qual-33 and --fake-fastq-quality can not be used together.");
+        not_valid = true;
+    }
+    if args.reverse_complement && args.both_complement {
+        eprintln!("Error: --reverse-complement and --both-complement can not be used together.");
+        not_valid = true;
+    }
+    if not_valid {
+        std::process::exit(1);
+    }
+    Ok(())
+}
