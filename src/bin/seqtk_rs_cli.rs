@@ -22,10 +22,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 sample.sample_fraction,
             );
             if let Some(in_fq) = &sample.in_fq {
-                subsample::subsample_fastx(&in_fq, &sample_paras, false)?;
+                subsample::subsample_fastx(in_fq, &sample_paras, false)?;
             }
             if let Some(in_fa) = &sample.in_fa {
-                subsample::subsample_fastx(&in_fa, &sample_paras, true)?;
+                subsample::subsample_fastx(in_fa, &sample_paras, true)?;
             }
         }
         sub_cli::Commands::Seq(seq) => {

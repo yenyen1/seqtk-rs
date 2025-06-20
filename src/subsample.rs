@@ -1,4 +1,5 @@
-use crate::utils::{self, FxWriter};
+use crate::io;
+use crate::utils::FxWriter;
 use rand::rngs::StdRng;
 use rand::Rng;
 use rand::SeedableRng;
@@ -25,24 +26,24 @@ pub fn subsample_fastx(
     let mut rng = StdRng::seed_from_u64(sample_paras.random_seed);
 
     if is_fasta {
-        let fa_iter = utils::new_fa_iterator(fx_path)?;
+        let fa_iter = io::new_fa_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(is_fasta);
         for record in fa_iter.records() {
             if rng.random::<f64>() > sampling_frac {
                 continue;
             }
             let read = record.unwrap();
-            fx_writer.write(read.id(), &read.seq(), None, &[])?;
+            fx_writer.write(read.id(), read.seq(), None, &[])?;
         }
     } else {
-        let fq_iter = utils::new_fq_iterator(fx_path)?;
+        let fq_iter = io::new_fq_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(is_fasta);
         for record in fq_iter.records() {
             if rng.random::<f64>() > sampling_frac {
                 continue;
             }
             let read = record.unwrap();
-            fx_writer.write(read.id(), &read.seq(), read.desc(), &read.qual())?;
+            fx_writer.write(read.id(), read.seq(), read.desc(), read.qual())?;
         }
     }
     Ok(())

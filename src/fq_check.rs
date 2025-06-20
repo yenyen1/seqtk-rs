@@ -1,14 +1,12 @@
-use crate::dna;
 use crate::qual_map::QualMap;
-use crate::stats;
-use crate::utils;
+use crate::{dna, io, stats};
 
 use bio::io::fastq::Record;
 use ndarray::{Array2, Axis};
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
-use std::io::{self, BufWriter, Write};
+use std::io::{BufWriter, Write};
 
 pub fn fq_check(
     fq_path: &str,
@@ -43,13 +41,13 @@ fn process_fastq_and_check(
     ascii_bases: u8,
     max_length: usize,
     qual_map: &HashMap<u8, usize>,
-) -> io::Result<()> {
+) -> Result<(), std::io::Error> {
     let mut dna_count_arr = Array2::<f64>::zeros((max_length, 5));
     let mut qual_sum_arr = Array2::<f64>::zeros((max_length, 2));
     let mut qual_count_arr =
         QualMap::init_qual_count_arr(max_length, qual_map.len(), qual_threshold);
 
-    let fq_iter = utils::new_fq_iterator(fq_path)?;
+    let fq_iter = io::new_fq_iterator(fq_path)?;
     for record in fq_iter.records() {
         let cur_read = record.unwrap();
 
@@ -76,8 +74,8 @@ fn write_fq_stat_to_file(
     qual_count_mat: &QualMap,
     qual_sum_map: &Array2<f64>,
     max_length: usize,
-) -> io::Result<()> {
-    let mut writer = utils::append_bufwriter(path)?;
+) -> Result<(), std::io::Error> {
+    let mut writer = io::append_bufwriter(path)?;
     let (total, dna_count_str) = get_total_and_dna_proportion(dna_count_mat);
     let qual_sum_str = get_total_qual_sum_stats(qual_sum_map, total);
     let qual_count_str = qual_count_mat.get_total_qual_count_stats(total);
@@ -139,7 +137,7 @@ fn parse_fq_and_write_length_and_qual_stats(
     }
     let mut reads_size = Vec::<u32>::new();
     let mut qual_set: HashSet<u8> = HashSet::new();
-    let fq_iter = utils::new_fq_iterator(fq_path)?;
+    let fq_iter = io::new_fq_iterator(fq_path)?;
     for record in fq_iter.records() {
         let cur_read = record.unwrap();
         reads_size.push(cur_read.seq().len() as u32);

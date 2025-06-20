@@ -1,5 +1,5 @@
 use crate::bed::{self, BedMap};
-use crate::utils::{self, FxWriter, RecordType};
+use crate::utils::{FxWriter, RecordType};
 use crate::{dna, io};
 
 pub struct FilterParas {
@@ -97,7 +97,7 @@ pub fn parse_fastx(
     };
 
     if is_fasta {
-        let fa_iter = utils::new_fa_iterator(fx_path)?;
+        let fa_iter = io::new_fa_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(out_paras.output_fasta);
         for (i, record) in fa_iter.records().enumerate() {
             let read = record.unwrap();
@@ -114,7 +114,7 @@ pub fn parse_fastx(
             }
         }
     } else {
-        let fq_iter = utils::new_fq_iterator(fx_path)?;
+        let fq_iter = io::new_fq_iterator(fx_path)?;
         let mut fx_writer = FxWriter::new(out_paras.output_fasta);
         for (i, record) in fq_iter.records().enumerate() {
             let read = record.unwrap();
