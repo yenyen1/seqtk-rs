@@ -1,6 +1,6 @@
-use crate::dna;
+use crate::bed::{self, BedMap};
 use crate::utils::{self, FxWriter, RecordType};
-use std::collections::HashMap;
+use crate::{dna, io};
 
 pub struct FilterParas {
     mini_seq_length: usize,
@@ -92,8 +92,8 @@ pub fn parse_fastx(
     is_fasta: bool,
 ) -> Result<(), std::io::Error> {
     let bed_map = match mask_paras.mask_regions {
-        Some(bed_path) => utils::get_bed_map(bed_path)?,
-        None => HashMap::new(),
+        Some(bed_path) => io::get_bed_map(bed_path)?,
+        None => BedMap::new(),
     };
 
     if is_fasta {
@@ -138,7 +138,7 @@ fn modify_and_print_read(
     read: &dyn RecordType,
     mask_paras: &MaskParas,
     out_paras: &OutArgs,
-    bed_map: &HashMap<String, Vec<[usize; 2]>>,
+    bed_map: &BedMap,
     is_fasta: bool,
 ) -> Result<(), std::io::Error> {
     let mut seq = modify_seq(read, mask_paras, bed_map, is_fasta);
@@ -199,7 +199,7 @@ fn modify_qual(read: &dyn RecordType, out_paras: &OutArgs, is_fasta: bool) -> Ve
 fn modify_seq(
     read: &dyn RecordType,
     mask_paras: &MaskParas,
-    bed_map: &HashMap<String, Vec<[usize; 2]>>,
+    bed_map: &BedMap,
     is_fasta: bool,
 ) -> Vec<u8> {
     let default_bed_pos = vec![[usize::MAX, 0]];
@@ -218,7 +218,7 @@ fn modify_seq(
                 if mask_paras.lowercases_to_char && ch.is_ascii_lowercase() {
                     *ch = c_u8;
                 } else {
-                    let (is_overlap, c_idx) = utils::is_overlapping(i, &bed_pos[cur_idx..]);
+                    let (is_overlap, c_idx) = bed::is_overlapping(i, &bed_pos[cur_idx..]);
                     cur_idx += c_idx;
                     if (is_overlap && !mask_paras.mask_complement_region)
                         || (!is_overlap && mask_paras.mask_complement_region)
@@ -231,7 +231,7 @@ fn modify_seq(
         None => {
             let mut cur_idx: usize = 0;
             seq.iter_mut().enumerate().for_each(|(i, ch)| {
-                let (is_overlap, c_idx) = utils::is_overlapping(i, &bed_pos[cur_idx..]);
+                let (is_overlap, c_idx) = bed::is_overlapping(i, &bed_pos[cur_idx..]);
                 cur_idx += c_idx;
                 if (is_overlap && !mask_paras.mask_complement_region)
                     || (!is_overlap && mask_paras.mask_complement_region)
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_modify_seq() {
         let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
-        let mut bed_map: HashMap<String, Vec<[usize; 2]>> = HashMap::new();
+        let mut bed_map: BedMap = BedMap::new();
 
         // [01] no modify
         let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
@@ -349,7 +349,7 @@ mod tests {
         assert_eq!(&out_seq, b"atcGATCGACTTg", "[err06]");
         // [07] check mask by bed
         let bed_path = Some("test.bed".to_string());
-        bed_map.insert("SEQ_ID_1".to_string(), vec![[5, 10]]);
+        bed_map.add("SEQ_ID_1".to_string(), [5, 10]);
 
         let mparas = MaskParas::new(None, false, false, 0, 255, &bed_path, false);
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);

@@ -1,7 +1,6 @@
 use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
-use rayon::prelude::*;
-use std::collections::{HashMap, HashSet};
+
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Stdout};
 use std::path::Path;
@@ -101,104 +100,5 @@ impl FxWriter {
             }
         }
         Ok(())
-    }
-}
-pub fn get_bed_map(file_path: &str) -> Result<HashMap<String, Vec<[usize; 2]>>, io::Error> {
-    // Read the file and collect unique intervals for each name
-    let file = File::open(file_path)?;
-    let reader = BufReader::new(file);
-    let mut bed_map: HashMap<String, HashSet<[usize; 2]>> = HashMap::new();
-    for line in reader.lines() {
-        match line {
-            Ok(line_content) => {
-                let columns: Vec<&str> = line_content.split('\t').collect();
-                if columns.len() > 2 {
-                    let name = columns[0].to_string();
-                    if let (Ok(start), Ok(end)) =
-                        (columns[1].parse::<usize>(), columns[2].parse::<usize>())
-                    {
-                        bed_map.entry(name).or_default().insert([start, end]);
-                    } else {
-                        eprintln!("Error parsing start or end for line: {}", line_content);
-                    }
-                }
-            }
-            Err(e) => eprintln!("Error reading line: {}", e),
-        }
-    }
-    // Merge overlapping intervals and store the results in a Vec
-    let result_map = merge_bed(&bed_map);
-    Ok(result_map)
-}
-fn merge_bed(bed_map: &HashMap<String, HashSet<[usize; 2]>>) -> HashMap<String, Vec<[usize; 2]>> {
-    let result_map: HashMap<String, Vec<[usize; 2]>> = bed_map
-        .par_iter()
-        .map(|(name, intervals)| {
-            let mut intervals: Vec<[usize; 2]> = intervals.iter().cloned().collect();
-            if intervals.len() == 1 {
-                (name.to_string(), intervals)
-            } else {
-                intervals.sort_unstable_by(|a, b| a[0].cmp(&b[0]));
-                let mut merged_intervals = Vec::new();
-                for i in 1..intervals.len() {
-                    if intervals[i - 1][1] < intervals[i][0] {
-                        merged_intervals.push(intervals[i - 1]);
-                    } else {
-                        intervals[i][0] = intervals[i - 1][0];
-                    }
-                }
-                merged_intervals.push(intervals[intervals.len() - 1]);
-                (name.to_string(), merged_intervals)
-            }
-        })
-        .collect();
-    result_map
-}
-pub fn is_overlapping(pos: usize, bed_pos: &[[usize; 2]]) -> (bool, usize) {
-    // (is_overlap, end_idx)
-    if bed_pos.is_empty() {
-        (false, 0)
-    } else {
-        for (idx, &range) in bed_pos.iter().enumerate() {
-            if range[1] < pos {
-            } else if pos < range[1] && range[0] <= pos {
-                return (true, idx); // If there's an overlap, return the index of the interval
-            } else {
-                return (false, idx);
-            }
-        }
-        (false, bed_pos.len())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::collections::{HashMap, HashSet};
-
-    #[test]
-    fn test_merge_bed() {
-        let mut bed_map = HashMap::new();
-        bed_map.insert("id_1".to_string(), HashSet::from([[1, 5], [6, 10], [2, 7]]));
-        bed_map.insert(
-            "id_2".to_string(),
-            HashSet::from([[13, 21], [31, 35], [19, 23], [6, 10], [30, 32], [41, 45]]),
-        );
-        let result_map = merge_bed(&bed_map);
-
-        let id_1_bed = result_map.get("id_1").unwrap();
-        let id_2_bed = result_map.get("id_2").unwrap();
-        assert_eq!(*id_1_bed, vec![[1, 10]]);
-        assert_eq!(*id_2_bed, vec![[6, 10], [13, 23], [30, 35], [41, 45]]);
-    }
-    #[test]
-    fn test_is_overlapping() {
-        let bed_pos = vec![[6, 10], [13, 23], [30, 35], [41, 45]];
-        let result = is_overlapping(11, &bed_pos[0..]);
-        assert_eq!(result, (false, 1));
-        let result = is_overlapping(31, &bed_pos[1..]);
-        assert_eq!(result, (true, 1));
-        let result = is_overlapping(32, &bed_pos[2..]);
-        assert_eq!(result, (true, 0));
     }
 }

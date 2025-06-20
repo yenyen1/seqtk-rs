@@ -148,9 +148,8 @@ pub fn valiation_seq_args(args: &SeqArgs) -> Result<(), std::io::Error> {
         errors.push("--lowercases-to-char requires --mask-char.");
     }
     if args.output_fasta && (args.output_qual_33 || args.fake_fastq_quality.is_some()) {
-        errors.push(
-            "--output-fasta can not be used with --output-qual-33 or --fake-fastq-quality."
-        );
+        errors
+            .push("--output-fasta can not be used with --output-qual-33 or --fake-fastq-quality.");
     }
     if args.output_qual_33 && args.fake_fastq_quality.is_some() {
         errors.push("--output-qual-33 and --fake-fastq-quality can not be used together.");
