@@ -1,7 +1,7 @@
 use crate::bed::{self, BedMap};
 use crate::dna;
 use crate::io::{FaReader, FqReader, FxWriter};
-use crate::utils::RecordType;
+use crate::record::RecordType;
 
 pub struct FilterParas {
     mini_seq_length: usize,

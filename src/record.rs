@@ -34,4 +34,3 @@ impl RecordType for fastq::Record {
         self.qual()
     }
 }
-

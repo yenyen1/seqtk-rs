@@ -1,4 +1,3 @@
-
 use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
 use std::fs::{File, OpenOptions};
