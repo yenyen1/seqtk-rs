@@ -1,4 +1,4 @@
-use crate::io;
+use crate::io::buffer_reader_maybe_gz;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::BufRead;
@@ -48,7 +48,7 @@ impl BedMap {
 }
 
 pub fn get_bed_map(file_path: &str) -> Result<BedMap, std::io::Error> {
-    let reader = io::buffer_reader_maybe_gz(file_path)?;
+    let reader = buffer_reader_maybe_gz(file_path)?;
     let mut bed_map: BedMap = BedMap::new();
     for line in reader.lines() {
         match line {
