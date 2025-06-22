@@ -2,6 +2,7 @@ use crate::bed::{self, BedMap};
 use crate::dna;
 use crate::io::{FaReader, FqReader, FxWriter};
 use crate::record::RecordType;
+use crate::sub_cli::SeqArgs;
 
 pub struct FilterParas {
     mini_seq_length: usize,
@@ -10,47 +11,35 @@ pub struct FilterParas {
     output_even_reads: bool,
 }
 impl FilterParas {
-    pub fn new(
-        mini_seq_length: usize,
-        drop_ambigous_seq: bool,
-        output_odd_reads: bool,
-        output_even_reads: bool,
-    ) -> Self {
+    pub fn from(seq: &SeqArgs) -> Self {
         FilterParas {
-            mini_seq_length,
-            drop_ambigous_seq,
-            output_odd_reads,
-            output_even_reads,
+            mini_seq_length: seq.mini_seq_length.unwrap_or(0),
+            drop_ambigous_seq: seq.drop_ambigous_seq,
+            output_odd_reads: seq.output_even,
+            output_even_reads: seq.output_odd,
         }
     }
 }
-pub struct MaskParas<'a> {
+pub struct MaskParas {
     mask_char: Option<char>,
     uppercases: bool,
     lowercases_to_char: bool,
     q_low: u8,  // only for fq
     q_high: u8, // only for fq
-    mask_regions: &'a Option<String>,
+    mask_regions: Option<String>,
     mask_complement_region: bool,
 }
-impl<'a> MaskParas<'a> {
-    pub fn new(
-        mask_char: Option<char>,
-        uppercases: bool,
-        lowercases_to_char: bool,
-        q_low: u8,
-        q_high: u8,
-        mask_regions: &'a Option<String>,
-        mask_complement_region: bool,
-    ) -> Self {
+impl MaskParas {
+    pub fn from(seq: &SeqArgs) -> Self {
+        let ascii_bases = seq.ascii_bases.unwrap_or(33);
         MaskParas {
-            mask_char,
-            uppercases,
-            lowercases_to_char,
-            q_low,
-            q_high,
-            mask_regions,
-            mask_complement_region,
+            mask_char: seq.mask_char,
+            uppercases: seq.uppercases,
+            lowercases_to_char: seq.lowercases_to_char,
+            q_low: (seq.q_low.unwrap_or(0) + ascii_bases),
+            q_high: (seq.q_high.unwrap_or(255 - ascii_bases) + ascii_bases),
+            mask_regions: seq.mask_regions.clone(),
+            mask_complement_region: seq.mask_complement_region,
         }
     }
 }
@@ -64,23 +53,27 @@ pub struct OutArgs {
     line_len: Option<usize>,
 }
 impl OutArgs {
-    pub fn new(
-        output_qual_shift: u8, // fq Q
-        fake_fastq_quality: Option<char>,
-        output_fasta: bool,
-        reverse_complement: bool,
-        both_complement: bool,
-        trim_header: bool,
-        line_len: Option<usize>,
-    ) -> Self {
+    pub fn from(seq: &SeqArgs) -> Self {
+        let ascii_bases = seq.ascii_bases.unwrap_or(33);
+        let out_qual_shift = if seq.output_qual_33 {
+            ascii_bases - 33
+        } else {
+            0
+        };
+        let output_fasta =
+            if !seq.output_fasta && seq.in_fa.is_some() && seq.fake_fastq_quality.is_none() {
+                true
+            } else {
+                seq.output_fasta
+            };
         OutArgs {
-            output_qual_shift,
-            fake_fastq_quality,
-            output_fasta,
-            reverse_complement,
-            both_complement,
-            trim_header,
-            line_len,
+            output_qual_shift: out_qual_shift,
+            fake_fastq_quality: seq.fake_fastq_quality,
+            output_fasta: output_fasta,
+            reverse_complement: seq.reverse_complement,
+            both_complement: seq.both_complement,
+            trim_header: seq.trim_header,
+            line_len: seq.line_len,
         }
     }
 }
@@ -92,7 +85,7 @@ pub fn parse_fastx(
     out_paras: &OutArgs,
     is_fasta: bool,
 ) -> Result<(), std::io::Error> {
-    let bed_map = match mask_paras.mask_regions {
+    let bed_map = match &mask_paras.mask_regions {
         Some(bed_path) => bed::get_bed_map(bed_path)?,
         None => BedMap::new(),
     };
@@ -299,94 +292,148 @@ mod tests {
 
     #[test]
     fn test_modify_qual() {
+        fn init_oparas() -> OutArgs {
+            OutArgs {
+                output_qual_shift: 0,
+                fake_fastq_quality: None,
+                output_fasta: false,
+                reverse_complement: false,
+                both_complement: false,
+                trim_header: false,
+                line_len: None,
+            }
+        }
         let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"gfryremb[trdg");
-        // [01] no modify
-        let oparas = OutArgs::new(0, None, false, false, false, false, None);
+        let mut oparas = init_oparas();
+
+        // [01] without modify
         let out_qual = modify_qual(&record, &oparas, false);
         assert_eq!(&out_qual, b"gfryremb[trdg");
+
         // [02] check output_qual_shift
-        let oparas = OutArgs::new(10, None, false, false, false, false, None);
+        oparas.output_qual_shift = 10;
         let out_qual = modify_qual(&record, &oparas, false);
         assert_eq!(&out_qual, b"]\\hoh[cXQjhZ]");
+
         // [02] check output_qual_shift
-        let oparas = OutArgs::new(0, Some('T'), false, false, false, false, None);
+        oparas = init_oparas();
+        oparas.fake_fastq_quality = Some('T');
         let out_qual = modify_qual(&record, &oparas, false);
         assert_eq!(&out_qual, b"TTTTTTTTTTTTT");
     }
+
     #[test]
     fn test_modify_seq() {
+        fn init_mparas() -> MaskParas {
+            MaskParas {
+                mask_char: None,
+                uppercases: false,
+                lowercases_to_char: false,
+                q_low: 0,
+                q_high: 255,
+                mask_regions: None,
+                mask_complement_region: false,
+            }
+        }
         let record = Record::with_attrs("SEQ_ID_1", None, b"ATCGATcgACTTG", b"!(*AAAABbbaaz");
         let mut bed_map: BedMap = BedMap::new();
+        let mut mparas = init_mparas();
 
-        // [01] no modify
-        let mparas = MaskParas::new(None, false, false, 0, 255, &None, false);
+        // [01] without modify
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"ATCGATcgACTTG", "[err01]");
+
         // [02] check mask_char + lowrcases_to_char
-        let mparas = MaskParas::new(Some('N'), false, true, 0, 255, &None, false);
+        mparas.mask_char = Some('N');
+        mparas.lowercases_to_char = true;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"ATCGATNNACTTG", "[err02]");
+
         // [03] check uppercases
-        let mparas = MaskParas::new(None, true, false, 0, 255, &None, false);
+        mparas = init_mparas();
+        mparas.uppercases = true;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"ATCGATCGACTTG", "[err03]");
+
         // [04] check q_low and q_high
-        let mparas = MaskParas::new(None, false, false, 20 + 33, 255, &None, false);
+        mparas = init_mparas();
+        mparas.q_low = 20 + 33;
+        mparas.q_high = 255;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"atcGATcgACTTG", "[err04]");
-        let mparas = MaskParas::new(None, false, false, 0, 85 + 33, &None, false);
+        mparas.q_low = 0;
+        mparas.q_high = 85 + 33;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"ATCGATcgACTTg", "[err05-1]");
+
         // [05] check q_low and q_high + mask_char and lowercases_to_char
-        let mparas = MaskParas::new(Some('N'), false, false, 20 + 33, 85 + 33, &None, false);
+        mparas = init_mparas();
+        mparas.mask_char = Some('N');
+        mparas.q_low = 20 + 33;
+        mparas.q_high = 85 + 33;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"NNNGATcgACTTN", "[err05-2]");
-        let mparas = MaskParas::new(Some('N'), false, true, 20 + 33, 85 + 33, &None, false);
+        mparas.lowercases_to_char = true;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"NNNGATNNACTTN", "[err05-3]");
+
         // [06] check q_low and q_high + uppercases
-        let mparas = MaskParas::new(None, true, false, 20 + 33, 85 + 33, &None, false);
+        mparas = init_mparas();
+        mparas.uppercases = true;
+        mparas.q_low = 20 + 33;
+        mparas.q_high = 85 + 33;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"atcGATCGACTTg", "[err06]");
+
         // [07] check mask by bed
         let bed_path = Some("test.bed".to_string());
         bed_map.add("SEQ_ID_1".to_string(), [5, 10]);
-
-        let mparas = MaskParas::new(None, false, false, 0, 255, &bed_path, false);
+        mparas = init_mparas();
+        mparas.mask_regions = bed_path.clone();
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"ATCGAtcgacTTG", "[err07]");
+
         // [08] checl mask by complement region
-        let mparas = MaskParas::new(None, false, false, 0, 255, &bed_path, true);
+        mparas.mask_complement_region = true;
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
         assert_eq!(&out_seq, b"atcgaTcgACttg", "[err08]");
     }
+
     #[test]
     fn test_filter_read() {
+        fn init_fparas() -> FilterParas {
+            FilterParas {
+                mini_seq_length: 0,
+                drop_ambigous_seq: false,
+                output_odd_reads: false,
+                output_even_reads: false,
+            }
+        }
+        let mut fparas = init_fparas();
         let record = Record::with_attrs("@SEQ_ID_1", None, b"ATCGATCGACTTG", b"!!<AAAABbbaab");
 
         // [01] check mini_seq_length
-        let fparas = FilterParas::new(10, false, false, false);
+        fparas.mini_seq_length = 10;
         assert_eq!(filter_read(0, &record, &fparas), true);
-        let fparas = FilterParas::new(50, false, false, false);
+        fparas.mini_seq_length = 50;
         assert_eq!(filter_read(0, &record, &fparas), false);
 
-        // [02] check drop anbugous seq
-        let fparas = FilterParas::new(0, true, false, false);
+        // [02] check drop ambiguous seq
+        fparas = init_fparas();
+        fparas.drop_ambigous_seq = true;
         assert_eq!(filter_read(0, &record, &fparas), true);
         let record2 = Record::with_attrs("@SEQ_ID_2", None, b"ANCGATCGACTTG", b"!!<AAAABbbaab");
-        let fparas = FilterParas::new(0, true, false, false);
         assert_eq!(filter_read(0, &record2, &fparas), false);
 
         // [03] output odd read
-        let fparas = FilterParas::new(0, true, true, false);
+        fparas.output_odd_reads = true;
         assert_eq!(filter_read(0, &record, &fparas), true);
-        let fparas = FilterParas::new(0, true, true, false);
         assert_eq!(filter_read(1, &record, &fparas), false);
 
         // [04] output even read
-        let fparas = FilterParas::new(0, true, false, true);
+        fparas = init_fparas();
+        fparas.output_even_reads = true;
         assert_eq!(filter_read(3, &record, &fparas), true);
-        let fparas = FilterParas::new(0, true, false, true);
         assert_eq!(filter_read(4, &record, &fparas), false);
     }
     #[test]
