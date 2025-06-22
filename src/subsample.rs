@@ -1,7 +1,6 @@
-use crate::io::{self, FxWriter};
+use crate::io::{FaReader, FqReader, FxWriter};
 use rand::rngs::StdRng;
-use rand::Rng;
-use rand::SeedableRng;
+use rand::{Rng, SeedableRng};
 
 pub struct SampleParas {
     random_seed: u64,
@@ -25,7 +24,7 @@ pub fn subsample_fastx(
     let mut rng = StdRng::seed_from_u64(sample_paras.random_seed);
 
     if is_fasta {
-        let fa_iter = io::new_fa_iterator(fx_path)?;
+        let fa_iter = FaReader::new(fx_path)?;
         let mut fx_writer = FxWriter::new(is_fasta);
         for record in fa_iter.records() {
             if rng.random::<f64>() > sampling_frac {
@@ -35,7 +34,7 @@ pub fn subsample_fastx(
             fx_writer.write(read.id(), read.seq(), None, &[])?;
         }
     } else {
-        let fq_iter = io::new_fq_iterator(fx_path)?;
+        let fq_iter = FqReader::new(fx_path)?;
         let mut fx_writer = FxWriter::new(is_fasta);
         for record in fq_iter.records() {
             if rng.random::<f64>() > sampling_frac {

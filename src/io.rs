@@ -1,16 +1,17 @@
+
 use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
 use std::fs::{File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Stdout};
 
-pub fn new_fq_iterator(fq_path: &str) -> io::Result<fastq::Reader<BufReader<Box<dyn BufRead>>>> {
-    let reader: Box<dyn BufRead> = buffer_reader_maybe_gz(fq_path)?;
-    Ok(fastq::Reader::new(reader))
-}
-pub fn new_fa_iterator(fa_path: &str) -> io::Result<fasta::Reader<BufReader<Box<dyn BufRead>>>> {
-    let reader: Box<dyn BufRead> = buffer_reader_maybe_gz(fa_path)?;
-    Ok(fasta::Reader::new(reader))
-}
+// pub fn new_fq_iterator(fq_path: &str) -> io::Result<fastq::Reader<BufReader<Box<dyn BufRead>>>> {
+//     let reader: Box<dyn BufRead> = buffer_reader_maybe_gz(fq_path)?;
+//     Ok(fastq::Reader::new(reader))
+// }
+// pub fn new_fa_iterator(fa_path: &str) -> io::Result<fasta::Reader<BufReader<Box<dyn BufRead>>>> {
+//     let reader: Box<dyn BufRead> = buffer_reader_maybe_gz(fa_path)?;
+//     Ok(fasta::Reader::new(reader))
+// }
 pub fn buffer_reader_maybe_gz(path: &str) -> io::Result<Box<dyn BufRead>> {
     let file = File::open(path)?;
     if path.ends_with(".gz") {
@@ -27,6 +28,27 @@ pub fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
         .open(out_path)?; // Open the file at the provided path
     let writer = BufWriter::new(file);
     Ok(writer)
+}
+
+pub struct FaReader(fasta::Reader<BufReader<Box<dyn BufRead>>>);
+pub struct FqReader(fastq::Reader<BufReader<Box<dyn BufRead>>>);
+impl FaReader {
+    pub fn new(path: &str) -> io::Result<Self> {
+        let reader: Box<dyn BufRead> = buffer_reader_maybe_gz(path)?;
+        Ok(Self(fasta::Reader::new(reader)))
+    }
+    pub fn records(self) -> fasta::Records<BufReader<Box<dyn BufRead + 'static>>> {
+        self.0.records()
+    }
+}
+impl FqReader {
+    pub fn new(path: &str) -> io::Result<Self> {
+        let reader: Box<dyn BufRead> = buffer_reader_maybe_gz(path)?;
+        Ok(Self(fastq::Reader::new(reader)))
+    }
+    pub fn records(self) -> fastq::Records<BufReader<Box<dyn BufRead + 'static>>> {
+        self.0.records()
+    }
 }
 
 pub enum FxWriter {
