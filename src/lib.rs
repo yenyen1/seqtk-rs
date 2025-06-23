@@ -1,10 +1,11 @@
 mod bed;
 mod dna;
 pub mod fq_check;
-mod io;
+mod io_utils;
 mod qual_map;
 mod record;
 pub mod seq;
+pub mod size;
 mod stats;
 pub mod sub_cli;
 pub mod subsample;

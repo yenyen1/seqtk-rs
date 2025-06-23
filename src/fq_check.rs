@@ -1,6 +1,6 @@
-use crate::io::FqReader;
+use crate::io_utils::FqReader;
 use crate::qual_map::QualMap;
-use crate::{dna, io, stats};
+use crate::{dna, io_utils, stats};
 
 use bio::io::fastq::Record;
 use ndarray::{Array2, Axis};
@@ -76,7 +76,7 @@ fn write_fq_stat_to_file(
     qual_sum_map: &Array2<f64>,
     max_length: usize,
 ) -> Result<(), std::io::Error> {
-    let mut writer = io::append_bufwriter(path)?;
+    let mut writer = io_utils::append_bufwriter(path)?;
     let (total, dna_count_str) = get_total_and_dna_proportion(dna_count_mat);
     let qual_sum_str = get_total_qual_sum_stats(qual_sum_map, total);
     let qual_count_str = qual_count_mat.get_total_qual_count_stats(total);

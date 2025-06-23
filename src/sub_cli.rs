@@ -17,6 +17,8 @@ pub enum Commands {
     Fqchk(FqchkArgs),
     /// Random Sampling given seed and fraction
     Sample(SampleArgs),
+    /// Report the number of sequence and bases
+    Size(SizeArgs),
 }
 
 #[derive(Args)]
@@ -32,6 +34,22 @@ pub struct FqchkArgs {
     #[arg(short, long)]
     /// ascii value [default: 33]
     pub ascii_base: Option<u8>,
+}
+
+#[derive(Args)]
+#[command(group(
+    ArgGroup::new("exclusive_group")
+        .args(["in_fq", "in_fa"])
+        .required(true)
+        .multiple(false)
+))]
+pub struct SizeArgs {
+    #[arg(short = 'I', long)]
+    /// Input fastq path
+    pub in_fq: Option<String>,
+    #[arg(short = 'A', long)]
+    /// Input fasta path
+    pub in_fa: Option<String>,
 }
 
 #[derive(Args)]

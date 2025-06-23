@@ -1,4 +1,4 @@
-use crate::io::buffer_reader_maybe_gz;
+use crate::io_utils::buffer_reader_maybe_gz;
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::io::BufRead;

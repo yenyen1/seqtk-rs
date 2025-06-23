@@ -1,5 +1,5 @@
 use clap::Parser;
-use seqtk_rs::{fq_check, seq, sub_cli, subsample};
+use seqtk_rs::{fq_check, seq, size, sub_cli, subsample};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -8,7 +8,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = "test".to_string();
 
     match &cli.command {
-        
         sub_cli::Commands::Fqchk(fqchk) => {
             fq_check::fq_check(
                 &fqchk.in_fq,
@@ -20,10 +19,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         sub_cli::Commands::Sample(sample) => {
             if let Some(in_fq) = &sample.in_fq {
-                subsample::subsample_fastx(in_fq, &sample, false)?;
+                subsample::subsample_fastx(in_fq, sample, false)?;
             }
             if let Some(in_fa) = &sample.in_fa {
-                subsample::subsample_fastx(in_fa, &sample, true)?;
+                subsample::subsample_fastx(in_fa, sample, true)?;
+            }
+        }
+
+        sub_cli::Commands::Size(size) => {
+            if let Some(in_fq) = &size.in_fq {
+                size::calc_fq_size(in_fq)?;
+            }
+            if let Some(in_fa) = &size.in_fa {
+                size::calc_fa_size(in_fa)?;
             }
         }
 

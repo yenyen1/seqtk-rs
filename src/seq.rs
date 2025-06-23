@@ -1,6 +1,6 @@
 use crate::bed::{self, BedMap, BedPos};
 use crate::dna;
-use crate::io::{FaReader, FqReader, FxWriter};
+use crate::io_utils::{FaReader, FqReader, FxWriter};
 use crate::record::RecordType;
 use crate::sub_cli::SeqArgs;
 

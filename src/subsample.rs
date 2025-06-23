@@ -1,4 +1,4 @@
-use crate::io::{FaReader, FqReader, FxWriter};
+use crate::io_utils::{FaReader, FqReader, FxWriter};
 use crate::sub_cli::SampleArgs;
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
