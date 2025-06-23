@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = "test".to_string();
 
     match &cli.command {
+        
         sub_cli::Commands::Fqchk(fqchk) => {
             fq_check::fq_check(
                 &fqchk.in_fq,
@@ -18,15 +19,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         sub_cli::Commands::Sample(sample) => {
-            let sample_paras = subsample::SampleParas::new(
-                sample.random_seed.unwrap_or(11),
-                sample.sample_fraction,
-            );
             if let Some(in_fq) = &sample.in_fq {
-                subsample::subsample_fastx(in_fq, &sample_paras, false)?;
+                subsample::subsample_fastx(in_fq, &sample, false)?;
             }
             if let Some(in_fa) = &sample.in_fa {
-                subsample::subsample_fastx(in_fa, &sample_paras, true)?;
+                subsample::subsample_fastx(in_fa, &sample, true)?;
             }
         }
 
