@@ -78,50 +78,33 @@ impl OutArgs {
     }
 }
 
-pub fn parse_fastx(
-    fx_path: &str,
-    filter_rule: &FilterParas,
-    mask_paras: &MaskParas,
-    out_paras: &OutArgs,
-    is_fasta: bool,
-) -> Result<(), std::io::Error> {
-    let bed_map = match &mask_paras.mask_regions {
+pub fn parse_fastx(path: &str, seq: &SeqArgs, is_fasta: bool) -> Result<(), std::io::Error> {
+    let fparas = FilterParas::from(seq);
+    let mparas = MaskParas::from(seq);
+    let oparas = OutArgs::from(seq);
+    let bed_map = match &mparas.mask_regions {
         Some(bed_path) => bed::get_bed_map(bed_path)?,
         None => BedMap::new(),
     };
 
     if is_fasta {
-        let fa_iter = FaReader::new(fx_path)?;
-        let mut fx_writer = FxWriter::new(out_paras.output_fasta);
+        let fa_iter = FaReader::new(path)?;
+        let mut fx_writer = FxWriter::new(oparas.output_fasta);
         for (i, record) in fa_iter.records().enumerate() {
             let read = record.unwrap();
-            let filter = filter_read(i + 1, &read, filter_rule);
-            if filter {
-                modify_and_print_read(
-                    &mut fx_writer,
-                    &read,
-                    mask_paras,
-                    out_paras,
-                    &bed_map,
-                    true,
-                )?;
+            let is_pass = is_pass(i + 1, &read, &fparas);
+            if is_pass {
+                modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, true)?;
             }
         }
     } else {
-        let fq_iter = FqReader::new(fx_path)?;
-        let mut fx_writer = FxWriter::new(out_paras.output_fasta);
+        let fq_iter = FqReader::new(path)?;
+        let mut fx_writer = FxWriter::new(oparas.output_fasta);
         for (i, record) in fq_iter.records().enumerate() {
             let read = record.unwrap();
-            let filter = filter_read(i + 1, &read, filter_rule);
-            if filter {
-                modify_and_print_read(
-                    &mut fx_writer,
-                    &read,
-                    mask_paras,
-                    out_paras,
-                    &bed_map,
-                    false,
-                )?;
+            let is_pass = is_pass(i + 1, &read, &fparas);
+            if is_pass {
+                modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, false)?;
             }
         }
     }
@@ -262,27 +245,20 @@ fn modify_seq(
     }
     seq
 }
-fn filter_read(i: usize, read: &dyn RecordType, filter_rule: &FilterParas) -> bool {
-    let even_or_odd = if !(filter_rule.output_even_reads && filter_rule.output_odd_reads) {
-        if filter_rule.output_even_reads {
-            i % 2 == 1
-        } else if filter_rule.output_odd_reads {
-            i % 2 == 0
-        } else {
-            true
-        }
-    } else {
-        false
-    };
-    let seq_wo_n: bool = if filter_rule.drop_ambigous_seq {
-        !read.seq().iter().any(|&c| dna::get_dna_idx_from_u8(c) > 3) // not containing char other than ATCGatcg
-    } else {
-        true
-    };
-    let write_read = read.seq().len().gt(&filter_rule.mini_seq_length) && // seq len large than min_len 
-        seq_wo_n && // seq not containing N
-        even_or_odd;
-    write_read
+fn is_pass(i: usize, read: &dyn RecordType, fparas: &FilterParas) -> bool {
+    if fparas.output_even_reads && i % 2 == 0 {
+        return false;
+    }
+    if fparas.output_odd_reads && i % 2 == 1 {
+        return false;
+    }
+    if fparas.drop_ambigous_seq && read.seq().iter().any(|&c| dna::get_dna_idx_from_u8(c) > 3) {
+        return false;
+    }
+    if read.seq().len().le(&fparas.mini_seq_length) {
+        return false;
+    }
+    true
 }
 
 #[cfg(test)]
@@ -400,7 +376,7 @@ mod tests {
     }
 
     #[test]
-    fn test_filter_read() {
+    fn test_is_filtered() {
         fn init_fparas() -> FilterParas {
             FilterParas {
                 mini_seq_length: 0,
@@ -414,27 +390,27 @@ mod tests {
 
         // [01] check mini_seq_length
         fparas.mini_seq_length = 10;
-        assert_eq!(filter_read(0, &record, &fparas), true);
+        assert_eq!(is_pass(0, &record, &fparas), true);
         fparas.mini_seq_length = 50;
-        assert_eq!(filter_read(0, &record, &fparas), false);
+        assert_eq!(is_pass(0, &record, &fparas), false);
 
         // [02] check drop ambiguous seq
         fparas = init_fparas();
         fparas.drop_ambigous_seq = true;
-        assert_eq!(filter_read(0, &record, &fparas), true);
+        assert_eq!(is_pass(0, &record, &fparas), true);
         let record2 = Record::with_attrs("@SEQ_ID_2", None, b"ANCGATCGACTTG", b"!!<AAAABbbaab");
-        assert_eq!(filter_read(0, &record2, &fparas), false);
+        assert_eq!(is_pass(0, &record2, &fparas), false);
 
         // [03] output odd read
         fparas.output_odd_reads = true;
-        assert_eq!(filter_read(0, &record, &fparas), true);
-        assert_eq!(filter_read(1, &record, &fparas), false);
+        assert_eq!(is_pass(0, &record, &fparas), true);
+        assert_eq!(is_pass(1, &record, &fparas), false);
 
         // [04] output even read
         fparas = init_fparas();
         fparas.output_even_reads = true;
-        assert_eq!(filter_read(3, &record, &fparas), true);
-        assert_eq!(filter_read(4, &record, &fparas), false);
+        assert_eq!(is_pass(3, &record, &fparas), true);
+        assert_eq!(is_pass(4, &record, &fparas), false);
     }
     #[test]
     fn test_add_newlines() {

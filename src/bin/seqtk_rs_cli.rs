@@ -8,7 +8,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let out = "test".to_string();
 
     match &cli.command {
-        
         sub_cli::Commands::Fqchk(fqchk) => {
             fq_check::fq_check(
                 &fqchk.in_fq,
@@ -33,14 +32,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         sub_cli::Commands::Seq(seq) => {
             sub_cli::valiation_seq_args(seq)?;
-            let filter_rule = seq::FilterParas::from(seq);
-            let mask_paras = seq::MaskParas::from(seq);
-            let out_paras = seq::OutArgs::from(seq);
-            if let Some(in_fq) = &seq.in_fq {
-                seq::parse_fastx(in_fq, &filter_rule, &mask_paras, &out_paras, false)?;
+            if let Some(path) = &seq.in_fq {
+                seq::parse_fastx(path, seq, false)?;
             }
-            if let Some(in_fa) = &seq.in_fa {
-                seq::parse_fastx(in_fa, &filter_rule, &mask_paras, &out_paras, true)?;
+            if let Some(path) = &seq.in_fa {
+                seq::parse_fastx(path, seq, true)?;
             }
         }
     }

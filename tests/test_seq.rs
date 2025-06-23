@@ -23,6 +23,7 @@ mod tests {
         let expect_content = fs::read("tests/data/chr.fastq").expect("");
         print!("{}/n", output);
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 01");
+
         // 02 - mask
         let args: Vec<&str> =
             "seq -I tests/data/chr.fastq --drop-ambigous-seq --mask-char x --lowercases-to-char"
@@ -31,11 +32,13 @@ mod tests {
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fq_02.fastq").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 02");
+
         // 03 - mask by qual
         let args: Vec<&str> = "seq -I tests/data/chr.fastq -1 --q-low 5 --mask-char x -M tests/data/chr.bed --reverse-complement".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fq_03.fastq").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 03");
+
         // 04 - uppercases + mask by qual + line length
         let args: Vec<&str> =
             "seq -I tests/data/chr.fastq --q-high 20 --uppercases --line-len 20 --trim-header"
@@ -44,11 +47,13 @@ mod tests {
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fq_04.fastq").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 04");
+
         // 05 - mask by bed + coplement
         let args: Vec<&str> = "seq -I tests/data/chr.fastq -M tests/data/chr.bed --mask-complement-region --fake-fastq-quality ^".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fq_05.fastq").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 05");
+
         // 06 - ascii bases
         let args: Vec<&str> =
             "seq -I tests/data/long.fastq -L 1000 --ascii-bases 35 --output-qual-33"
@@ -58,6 +63,7 @@ mod tests {
         let expect_content = fs::read("tests/data/seq/fq2fq_06.fastq").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fq - 06");
     }
+
     #[test]
     fn test_seq_input_fastq_output_fasta() {
         // 01 - do nothing
@@ -67,25 +73,30 @@ mod tests {
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/chr.fasta").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fa -> fq - 01");
+
         // 02 -
         let args: Vec<&str> = "seq -I tests/data/chr.fastq --drop-ambigous-seq --mask-char x --lowercases-to-char --output-fasta".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fa_02.fasta").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fa - 02");
+
         // 03 -
         let args: Vec<&str> = "seq -I tests/data/chr.fastq -1 --q-low 5 --mask-char x -M tests/data/chr.bed --reverse-complement --output-fasta".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fa_03.fasta").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fa - 03");
+
         // 04 -
         let args: Vec<&str> = "seq -I tests/data/chr.fastq --q-high 20 --uppercases --line-len 20 --trim-header --output-fasta".split_whitespace().collect();
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/seq/fq2fa_04.fasta").expect("");
         assert_eq!(output.as_bytes(), expect_content, "[test] fq -> fa - 04");
+
         // 05 -
         let args: Vec<&str> = "seq -I tests/data/chr.fastq -M tests/data/chr.bed --mask-complement-region --fake-fastq-quality ^ --output-fasta".split_whitespace().collect();
         let output = run_program_with_args(&args);
         assert_eq!(output.as_bytes(), [], "[test] fq -> fa - 05");
+
         // 06 - ascii bases
         let args: Vec<&str> =
             "seq -I tests/data/long.fastq -L 1000 --ascii-bases 35 --q-low 5 --output-fasta"
