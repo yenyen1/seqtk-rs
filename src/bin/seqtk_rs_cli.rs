@@ -33,10 +33,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sub_cli::Commands::Seq(seq) => {
             sub_cli::valiation_seq_args(seq)?;
             if let Some(path) = &seq.in_fq {
-                seq::parse_fastx(path, seq, false)?;
+                seq::parse_fastq(path, seq)?;
             }
             if let Some(path) = &seq.in_fa {
-                seq::parse_fastx(path, seq, true)?;
+                seq::parse_fasta(path, seq)?;
             }
         }
     }

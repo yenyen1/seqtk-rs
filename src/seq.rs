@@ -1,17 +1,17 @@
-use crate::bed::{self, BedMap};
+use crate::bed::{self, BedMap, BedPos};
 use crate::dna;
 use crate::io::{FaReader, FqReader, FxWriter};
 use crate::record::RecordType;
 use crate::sub_cli::SeqArgs;
 
-pub struct FilterParas {
+struct FilterParas {
     mini_seq_length: usize,
     drop_ambigous_seq: bool,
     output_odd_reads: bool,
     output_even_reads: bool,
 }
 impl FilterParas {
-    pub fn from(seq: &SeqArgs) -> Self {
+    fn from(seq: &SeqArgs) -> Self {
         FilterParas {
             mini_seq_length: seq.mini_seq_length.unwrap_or(0),
             drop_ambigous_seq: seq.drop_ambigous_seq,
@@ -20,17 +20,17 @@ impl FilterParas {
         }
     }
 }
-pub struct MaskParas {
+struct MaskParas {
     mask_char: Option<char>,
     uppercases: bool,
     lowercases_to_char: bool,
-    q_low: u8,  // only for fq
-    q_high: u8, // only for fq
+    q_low: u8,
+    q_high: u8,
     mask_regions: Option<String>,
     mask_complement_region: bool,
 }
 impl MaskParas {
-    pub fn from(seq: &SeqArgs) -> Self {
+    fn from(seq: &SeqArgs) -> Self {
         let ascii_bases = seq.ascii_bases.unwrap_or(33);
         MaskParas {
             mask_char: seq.mask_char,
@@ -44,16 +44,16 @@ impl MaskParas {
     }
 }
 pub struct OutArgs {
-    output_qual_shift: u8, // fq Q
+    output_qual_shift: u8,
     fake_fastq_quality: Option<char>,
-    output_fasta: bool,       //
-    reverse_complement: bool, // fa | fq
-    both_complement: bool,    // fa | fq
+    output_fasta: bool,
+    reverse_complement: bool,
+    both_complement: bool,
     trim_header: bool,
     line_len: Option<usize>,
 }
 impl OutArgs {
-    pub fn from(seq: &SeqArgs) -> Self {
+    fn from(seq: &SeqArgs) -> Self {
         let ascii_bases = seq.ascii_bases.unwrap_or(33);
         let out_qual_shift = if seq.output_qual_33 {
             ascii_bases - 33
@@ -69,7 +69,7 @@ impl OutArgs {
         OutArgs {
             output_qual_shift: out_qual_shift,
             fake_fastq_quality: seq.fake_fastq_quality,
-            output_fasta: output_fasta,
+            output_fasta,
             reverse_complement: seq.reverse_complement,
             both_complement: seq.both_complement,
             trim_header: seq.trim_header,
@@ -78,7 +78,26 @@ impl OutArgs {
     }
 }
 
-pub fn parse_fastx(path: &str, seq: &SeqArgs, is_fasta: bool) -> Result<(), std::io::Error> {
+pub fn parse_fasta(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
+    let fparas = FilterParas::from(seq);
+    let mparas = MaskParas::from(seq);
+    let oparas = OutArgs::from(seq);
+    let bed_map = match &mparas.mask_regions {
+        Some(bed_path) => bed::get_bed_map(bed_path)?,
+        None => BedMap::new(),
+    };
+    let fa_iter = FaReader::new(path)?;
+    let mut fx_writer = FxWriter::new(oparas.output_fasta);
+    for (i, record) in fa_iter.records().enumerate() {
+        let read = record.unwrap();
+        let is_pass = is_pass(i + 1, &read, &fparas);
+        if is_pass {
+            modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, true)?;
+        }
+    }
+    Ok(())
+}
+pub fn parse_fastq(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let fparas = FilterParas::from(seq);
     let mparas = MaskParas::from(seq);
     let oparas = OutArgs::from(seq);
@@ -87,27 +106,16 @@ pub fn parse_fastx(path: &str, seq: &SeqArgs, is_fasta: bool) -> Result<(), std:
         None => BedMap::new(),
     };
 
-    if is_fasta {
-        let fa_iter = FaReader::new(path)?;
-        let mut fx_writer = FxWriter::new(oparas.output_fasta);
-        for (i, record) in fa_iter.records().enumerate() {
-            let read = record.unwrap();
-            let is_pass = is_pass(i + 1, &read, &fparas);
-            if is_pass {
-                modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, true)?;
-            }
-        }
-    } else {
-        let fq_iter = FqReader::new(path)?;
-        let mut fx_writer = FxWriter::new(oparas.output_fasta);
-        for (i, record) in fq_iter.records().enumerate() {
-            let read = record.unwrap();
-            let is_pass = is_pass(i + 1, &read, &fparas);
-            if is_pass {
-                modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, false)?;
-            }
+    let fq_iter = FqReader::new(path)?;
+    let mut fx_writer = FxWriter::new(oparas.output_fasta);
+    for (i, record) in fq_iter.records().enumerate() {
+        let read = record.unwrap();
+        let is_pass = is_pass(i + 1, &read, &fparas);
+        if is_pass {
+            modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, false)?;
         }
     }
+
     Ok(())
 }
 fn modify_and_print_read(
@@ -154,20 +162,20 @@ fn revcomp(seq: &mut [u8], qual: &mut [u8]) {
     dna::revcomp(seq);
     qual.reverse();
 }
-fn modify_qual(read: &dyn RecordType, out_paras: &OutArgs, is_fasta: bool) -> Vec<u8> {
-    match out_paras.fake_fastq_quality {
+fn modify_qual(read: &dyn RecordType, oparas: &OutArgs, is_fasta: bool) -> Vec<u8> {
+    match oparas.fake_fastq_quality {
         Some(fake_qual) => {
             vec![fake_qual as u8; read.seq().len()]
         }
         None => {
             if is_fasta {
                 Vec::new()
-            } else if out_paras.output_qual_shift == 0 {
+            } else if oparas.output_qual_shift == 0 {
                 read.qual().to_vec()
             } else {
                 read.qual()
                     .iter()
-                    .map(|q| q - out_paras.output_qual_shift)
+                    .map(|q| q - oparas.output_qual_shift)
                     .collect()
             }
         }
@@ -179,7 +187,7 @@ fn modify_seq(
     bed_map: &BedMap,
     is_fasta: bool,
 ) -> Vec<u8> {
-    let default_bed_pos = vec![[usize::MAX, 0]];
+    let default_bed_pos = vec![BedPos(usize::MAX, 0)];
     let bed_pos = bed_map.get(read.id()).unwrap_or(&default_bed_pos);
     let mut seq = if mask_paras.uppercases {
         read.seq().to_ascii_uppercase() // convert all to uppercases
@@ -363,7 +371,7 @@ mod tests {
 
         // [07] check mask by bed
         let bed_path = Some("test.bed".to_string());
-        bed_map.add("SEQ_ID_1".to_string(), [5, 10]);
+        bed_map.add("SEQ_ID_1".to_string(), BedPos(5, 10));
         mparas = init_mparas();
         mparas.mask_regions = bed_path.clone();
         let out_seq = modify_seq(&record, &mparas, &bed_map, false);
