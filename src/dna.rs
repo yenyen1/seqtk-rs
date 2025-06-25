@@ -10,6 +10,11 @@ const ASCII_TO_ACGTN_IDX: [usize; 256] = [
     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
 ];
+/// ASCII to IUPAC nc comsidering masked bases
+// const IUPAC_NC: [char; 31] = [
+//     'A', 'C', 'G', 'T', 'R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N', 'a', 'c', 'g', 't',
+//     'r', 'y', 's', 'w', 'k', 'm', 'b', 'd', 'h', 'v', 'n', 'X',
+// ];
 /// complemet for IUPAC nucleotide code
 /// https://arep.med.harvard.edu/labgc/adnan/projects/Utilities/revcomp.html
 const COMP_TRANS: [u8; 256] = [
@@ -51,13 +56,90 @@ pub const ACGTN_TAB: &str = "\tA\tC\tG\tT\tN";
 pub fn get_dna_idx_from_u8(s: u8) -> usize {
     ASCII_TO_ACGTN_IDX[s as usize]
 }
+
 pub fn complement(s: &u8) -> u8 {
     COMP_TRANS[*s as usize]
 }
 
 pub fn revcomp(seq: &mut [u8]) {
-    for c in seq.iter_mut() {
-        *c = complement(c);
-    }
+    seq.iter_mut().for_each(|c| *c = complement(c));
     seq.reverse();
+}
+
+pub struct SeqComp;
+impl SeqComp {
+    /// ASCII to IUPAC nc comsidering masked bases
+    /// ( A: 0; C: 1; G: 2; T: 3 ) ; ( R: 4; Y: 5; S: 6; W: 7; K: 8; M: 9 ) ; ( B:10; D:11; H:12; V:13 ) ; ( N:14 )
+    /// ( a:15; c:16; g:17; t:18 ) ; ( r:19; y:20; s:21; w:22; k:23; m:24 ) ; ( b:25; d:26; h:27; v:28 ) ; ( n:29 )
+    /// others: 30
+    const ASCII_TO_IUPAC_NC_IDX: [usize; 256] = [
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, //
+        0, 10, 1, 11, 30, 30, 2, 12, 30, 30, 8, 30, 9, 14, 30, 30, 30, 4, 6, 3, 30, 13, 7, 30, 5,
+        30, 30, 30, 30, 30, 30, 30, // A-
+        15, 25, 16, 26, 30, 30, 17, 27, 30, 30, 23, 30, 24, 29, 30, 30, 30, 19, 21, 18, 30, 28, 22,
+        30, 20, 30, 30, 30, 30, 30, 30, 30, // a-
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+    ];
+    /// Purine (A|G) = 0; Pyrimidine (C|T) = 1
+    const IUPAC_TO_PURINE_PYRIMIDINE: [usize; 31] = [
+        0, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    ];
+    fn get_iupac_index_from_u8(s: u8) -> usize {
+        Self::ASCII_TO_IUPAC_NC_IDX[s as usize]
+    }
+    /// Input IUPAC index and output 1: transition , 2: transversion, 0: others
+    pub fn get_tx_index(cur_b: usize, next_b: usize) -> usize {
+        let cur_b = Self::IUPAC_TO_PURINE_PYRIMIDINE[cur_b];
+        let next_b = Self::IUPAC_TO_PURINE_PYRIMIDINE[next_b];
+        if cur_b == 2 || next_b == 2 {
+            0
+        } else if cur_b == next_b {
+            1
+        } else {
+            2
+        }
+    }
+    pub  fn get_cp_index(cur_b: usize, next_b: usize) -> bool {
+        if cur_b == (1 | 16) && next_b == (2 | 17) {
+            return true;
+        }
+        false
+    }
+    pub fn count_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 34] {
+        let mut count: [usize; 34] = [0; 34];
+        seq[start..end].windows(2).for_each(|b| {
+            let cur_b = Self::get_iupac_index_from_u8(b[0]);
+            let next_b = Self::get_iupac_index_from_u8(b[1]);
+            count[cur_b] += 1;
+            count[Self::get_tx_index(cur_b, next_b) + 31] += 1;
+        });
+        let cur_b = Self::get_iupac_index_from_u8(seq[end - 1]);
+        count[cur_b] += 1;
+        count
+    }
+    pub fn count_unmasked_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 34] {
+        let mut count: [usize; 34] = [0; 34];
+        seq[start..end].windows(2).for_each(|b| {
+            let cur_b = Self::get_iupac_index_from_u8(b[0]);
+            if cur_b < 15 {
+                count[cur_b] += 1;
+                let next_b = Self::get_iupac_index_from_u8(b[1]);
+                if next_b < 15 {
+                    count[Self::get_tx_index(cur_b, next_b) + 31] += 1;
+                }
+            }
+        });
+        let cur_b = Self::get_iupac_index_from_u8(seq[end - 1]);
+        if cur_b < 15 {
+            count[cur_b] += 1;
+        }
+        count
+    }
 }

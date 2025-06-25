@@ -12,7 +12,7 @@ pub fn calc_fq_size(path: &str) -> Result<(), std::io::Error> {
     }
     let stdout = io::stdout();
     let mut output = Output::new(stdout);
-    output.write(format!("{} {}\n", seq_count, bases_count))?;
+    output.write(format!("{}\t{}\n", seq_count, bases_count))?;
     Ok(())
 }
 
@@ -27,6 +27,6 @@ pub fn calc_fa_size(path: &str) -> Result<(), std::io::Error> {
     }
     let stdout = io::stdout();
     let mut output = Output::new(stdout);
-    output.write(format!("{} {}\n", seq_count, bases_count))?;
+    output.write(format!("{}\t{}\n", seq_count, bases_count))?;
     Ok(())
 }

@@ -19,6 +19,8 @@ pub enum Commands {
     Sample(SampleArgs),
     /// Report the number of sequence and bases
     Size(SizeArgs),
+    /// Report the nucleotide composition of FASTA/Q
+    Comp(CompArgs),
 }
 
 #[derive(Args)]
@@ -44,6 +46,22 @@ pub struct FqchkArgs {
         .multiple(false)
 ))]
 pub struct SizeArgs {
+    #[arg(short = 'I', long)]
+    /// Input fastq path
+    pub in_fq: Option<String>,
+    #[arg(short = 'A', long)]
+    /// Input fasta path
+    pub in_fa: Option<String>,
+}
+
+#[derive(Args)]
+#[command(group(
+    ArgGroup::new("exclusive_group")
+        .args(["in_fq", "in_fa"])
+        .required(true)
+        .multiple(false)
+))]
+pub struct CompArgs {
     #[arg(short = 'I', long)]
     /// Input fastq path
     pub in_fq: Option<String>,
