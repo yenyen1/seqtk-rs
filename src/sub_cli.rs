@@ -68,6 +68,12 @@ pub struct CompArgs {
     #[arg(short = 'A', long)]
     /// Input fasta path
     pub in_fa: Option<String>,
+    #[arg(short = 'u', long)]
+    /// Only report unmasked bases
+    pub exclude_masked: bool,
+    #[arg(short = 'r', long)]
+    /// Report bases that overlap with the regions specified in the BED (0-based) file [default: null]
+    pub in_bed: Option<String>,
 }
 
 #[derive(Args)]

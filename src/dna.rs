@@ -10,11 +10,6 @@ const ASCII_TO_ACGTN_IDX: [usize; 256] = [
     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
     4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4,
 ];
-/// ASCII to IUPAC nc comsidering masked bases
-// const IUPAC_NC: [char; 31] = [
-//     'A', 'C', 'G', 'T', 'R', 'Y', 'S', 'W', 'K', 'M', 'B', 'D', 'H', 'V', 'N', 'a', 'c', 'g', 't',
-//     'r', 'y', 's', 'w', 'k', 'm', 'b', 'd', 'h', 'v', 'n', 'X',
-// ];
 /// complemet for IUPAC nucleotide code
 /// https://arep.med.harvard.edu/labgc/adnan/projects/Utilities/revcomp.html
 const COMP_TRANS: [u8; 256] = [
@@ -69,77 +64,117 @@ pub fn revcomp(seq: &mut [u8]) {
 pub struct SeqComp;
 impl SeqComp {
     /// ASCII to IUPAC nc comsidering masked bases
-    /// ( A: 0; C: 1; G: 2; T: 3 ) ; ( R: 4; Y: 5; S: 6; W: 7; K: 8; M: 9 ) ; ( B:10; D:11; H:12; V:13 ) ; ( N:14 )
-    /// ( a:15; c:16; g:17; t:18 ) ; ( r:19; y:20; s:21; w:22; k:23; m:24 ) ; ( b:25; d:26; h:27; v:28 ) ; ( n:29 )
-    /// others: 30
+    /// ( A: 0; C: 1; G: 2; T: 3 ) ; ( RYSWKM: 4 ) ; ( BDHV: 5 ) ; ( N: 6 )
+    /// ( a: 7; c: 8; g: 9; t:10 ) ; ( ryswkm:11 ) ; ( bdhv:12 ) ; ( n:13 )
+    /// others: 14
     const ASCII_TO_IUPAC_NC_IDX: [usize; 256] = [
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, //
-        0, 10, 1, 11, 30, 30, 2, 12, 30, 30, 8, 30, 9, 14, 30, 30, 30, 4, 6, 3, 30, 13, 7, 30, 5,
-        30, 30, 30, 30, 30, 30, 30, // A-
-        15, 25, 16, 26, 30, 30, 17, 27, 30, 30, 23, 30, 24, 29, 30, 30, 30, 19, 21, 18, 30, 28, 22,
-        30, 20, 30, 30, 30, 30, 30, 30, 30, // a-
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
-        30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, //
+        0, 5, 1, 5, 14, 14, 2, 5, 14, 14, 4, 14, 4, 6, 14, 14, 14, 4, 4, 3, 14, 5, 4, 14, 4, 14,
+        14, 14, 14, 14, 14, 14, // A-
+        7, 12, 8, 12, 14, 14, 9, 12, 14, 14, 11, 14, 11, 13, 14, 14, 14, 11, 11, 10, 14, 12, 11,
+        14, 11, 14, 14, 14, 14, 14, 14, 14, // a-
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
+        14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14, 14,
     ];
     /// Purine (A|G) = 0; Pyrimidine (C|T) = 1
-    const IUPAC_TO_PURINE_PYRIMIDINE: [usize; 31] = [
-        0, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    const IUPAC_TO_PURINE_PYRIMIDINE: [usize; 15] = [
+        0, 1, 0, 1, 2, 2, 2, //
+        0, 1, 0, 1, 2, 2, 2, 2,
     ];
     fn get_iupac_index_from_u8(s: u8) -> usize {
         Self::ASCII_TO_IUPAC_NC_IDX[s as usize]
     }
-    /// Input IUPAC index and output 1: transition , 2: transversion, 0: others
-    pub fn get_tx_index(cur_b: usize, next_b: usize) -> usize {
+    /// Input IUPAC index and output 1: transversion, 2: transition , 3: others
+    fn get_tx_index(cur_b: usize, next_b: usize) -> usize {
         let cur_b = Self::IUPAC_TO_PURINE_PYRIMIDINE[cur_b];
         let next_b = Self::IUPAC_TO_PURINE_PYRIMIDINE[next_b];
         if cur_b == 2 || next_b == 2 {
-            0
+            3
         } else if cur_b == next_b {
-            1
-        } else {
             2
+        } else {
+            1
         }
     }
-    pub  fn get_cp_index(cur_b: usize, next_b: usize) -> bool {
-        if cur_b == (1 | 16) && next_b == (2 | 17) {
-            return true;
+    /// Input IUPAC index and output 1: CG, 2: CG(reverse complemet), 3: CG(masked), 4: CG(masked rc), 5: others
+    fn get_cp_index(cur_b: usize, next_b: usize) -> usize {
+        if cur_b == 1 && next_b == 2 {
+            1
+        } else if cur_b == 2 && next_b == 1 {
+            2
+        } else if cur_b == (1 | 8) && next_b == (2 | 9) {
+            3
+        } else if cur_b == (2 | 9) && next_b == (1 | 8) {
+            4
+        } else {
+            5
         }
-        false
     }
-    pub fn count_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 34] {
-        let mut count: [usize; 34] = [0; 34];
+    fn get_comp_output(v: &[usize; 23], include_masked: bool) -> [usize; 11] {
+        // #A, #C, #G, #T, #2, #3, #4, #CpG, #tv, #ts, #CpG-ts
+        let mut out: [usize; 11] = [0; 11];
+        if include_masked {
+            out[0] = v[0] + v[7];
+            out[1] = v[1] + v[8];
+            out[2] = v[2] + v[9];
+            out[3] = v[3] + v[10];
+            out[4] = v[4] + v[11];
+            out[5] = v[5] + v[12];
+            out[6] = v[6] + v[13];
+            out[7] = v[18] + v[19] + v[20] + v[21];
+            out[10] = v[18] + v[20];
+        } else {
+            out[0] = v[0];
+            out[1] = v[1];
+            out[2] = v[2];
+            out[3] = v[3];
+            out[4] = v[4];
+            out[5] = v[5];
+            out[6] = v[6];
+            out[7] = v[18] + v[19];
+            out[10] = v[18];
+        }
+        out[8] = v[15];
+        out[9] = v[16];
+        out
+    }
+    pub fn count_all_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 11] {
+        // count: 0-14 'A'-'X'; 15-17 tv, ts, other; 18-22 CpG, CpG-rc, masked-CpG, masked-CpG-rc, others
+        let mut count: [usize; 23] = [0; 23];
         seq[start..end].windows(2).for_each(|b| {
             let cur_b = Self::get_iupac_index_from_u8(b[0]);
             let next_b = Self::get_iupac_index_from_u8(b[1]);
             count[cur_b] += 1;
-            count[Self::get_tx_index(cur_b, next_b) + 31] += 1;
+            count[Self::get_tx_index(cur_b, next_b) + 14] += 1;
+            count[Self::get_cp_index(cur_b, next_b) + 17] += 1;
         });
         let cur_b = Self::get_iupac_index_from_u8(seq[end - 1]);
         count[cur_b] += 1;
-        count
+        Self::get_comp_output(&count, true)
     }
-    pub fn count_unmasked_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 34] {
-        let mut count: [usize; 34] = [0; 34];
+    pub fn count_unmasked_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 11] {
+        let mut count: [usize; 23] = [0; 23];
         seq[start..end].windows(2).for_each(|b| {
             let cur_b = Self::get_iupac_index_from_u8(b[0]);
-            if cur_b < 15 {
+            if cur_b < 7 {
                 count[cur_b] += 1;
                 let next_b = Self::get_iupac_index_from_u8(b[1]);
-                if next_b < 15 {
-                    count[Self::get_tx_index(cur_b, next_b) + 31] += 1;
+                if next_b < 7 {
+                    count[Self::get_tx_index(cur_b, next_b) + 14] += 1;
+                    count[Self::get_cp_index(cur_b, next_b) + 17] += 1;
                 }
             }
         });
         let cur_b = Self::get_iupac_index_from_u8(seq[end - 1]);
-        if cur_b < 15 {
+        if cur_b < 7 {
             count[cur_b] += 1;
         }
-        count
+        Self::get_comp_output(&count, false)
     }
 }

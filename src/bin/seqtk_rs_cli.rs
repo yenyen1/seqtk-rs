@@ -35,12 +35,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        sub_cli::Commands::Comp(size) => {
-            if let Some(in_fq) = &size.in_fq {
-                nc_comp::calc_fq_comp(in_fq)?;
+        sub_cli::Commands::Comp(comp) => {
+            if let Some(in_fq) = &comp.in_fq {
+                nc_comp::calc_fq_comp(in_fq, comp.exclude_masked)?;
             }
-            if let Some(in_fa) = &size.in_fa {
-                nc_comp::calc_fa_comp(in_fa)?;
+            if let Some(in_fa) = &comp.in_fa {
+                nc_comp::calc_fa_comp(in_fa, comp.exclude_masked)?;
             }
         }
 
