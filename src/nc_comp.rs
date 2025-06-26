@@ -43,14 +43,14 @@ pub fn calc_fa_comp(path: &str, exclude_masked: bool) -> Result<(), std::io::Err
     Ok(())
 }
 fn print_cols(output: &mut Output<Stdout>) -> Result<(), std::io::Error> {
-    output.write("ID\tlength\t#A\t#C\t#G\t#T\t#2\t#3\t#4\t#CpG\t#tv\t#ts\t#CpG-ts\n")?;
+    output.write("ID\tlength\t#A\t#C\t#G\t#T\t#2\t#3\t#4\t#CG\t#GC\n")?;
     Ok(())
 }
 fn print(
     output: &mut Output<Stdout>,
     id: &str,
     size: usize,
-    count: &[usize; 11],
+    count: &[usize; 9],
 ) -> Result<(), std::io::Error> {
     output.write(format!(
         "{}\t{}\t{}\n",
