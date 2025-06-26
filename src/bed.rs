@@ -20,8 +20,32 @@ impl BedMap {
     pub fn get(&self, key: &str) -> Option<&Vec<BedPos>> {
         self.map.get(key)
     }
+    pub fn from(path: &str) -> Result<BedMap, std::io::Error> {
+        let reader = buffer_reader_maybe_gz(path)?;
+        let mut bed_map: BedMap = BedMap::new();
+        for line in reader.lines() {
+            match line {
+                Ok(line_content) => {
+                    let columns: Vec<&str> = line_content.split('\t').collect();
+                    if columns.len() > 2 {
+                        let name = columns[0].to_string();
+                        if let (Ok(start), Ok(end)) =
+                            (columns[1].parse::<usize>(), columns[2].parse::<usize>())
+                        {
+                            bed_map.add(name, BedPos(start, end));
+                        } else {
+                            eprintln!("Error parsing start or end for line: {}", line_content);
+                        }
+                    }
+                }
+                Err(e) => eprintln!("Error reading line: {}", e),
+            }
+        }
+        bed_map.merge();
+        Ok(bed_map)
+    }
     /// Merge overlapping intervals in the map and return a new HashMap
-    pub fn merge(&mut self) {
+    fn merge(&mut self) {
         let merged_map: HashMap<String, Vec<BedPos>> = self
             .map
             .par_iter()
@@ -47,31 +71,7 @@ impl BedMap {
             .collect();
         self.map = merged_map;
     }
-}
-
-pub fn get_bed_map(file_path: &str) -> Result<BedMap, std::io::Error> {
-    let reader = buffer_reader_maybe_gz(file_path)?;
-    let mut bed_map: BedMap = BedMap::new();
-    for line in reader.lines() {
-        match line {
-            Ok(line_content) => {
-                let columns: Vec<&str> = line_content.split('\t').collect();
-                if columns.len() > 2 {
-                    let name = columns[0].to_string();
-                    if let (Ok(start), Ok(end)) =
-                        (columns[1].parse::<usize>(), columns[2].parse::<usize>())
-                    {
-                        bed_map.add(name, BedPos(start, end));
-                    } else {
-                        eprintln!("Error parsing start or end for line: {}", line_content);
-                    }
-                }
-            }
-            Err(e) => eprintln!("Error reading line: {}", e),
-        }
-    }
-    bed_map.merge();
-    Ok(bed_map)
+    
 }
 
 pub fn is_overlapping(pos: usize, bed_pos: &[BedPos]) -> (bool, usize) {

@@ -104,33 +104,37 @@ impl SeqComp {
             3
         }
     }
-    fn get_comp_output(v: &[usize; 23], include_masked: bool) -> [usize; 9] {
+    pub fn get_all_result(v: &[usize; 23]) -> [usize; 9] {
         // #A, #C, #G, #T, #2, #3, #4, #CpG, #GC
         let mut out: [usize; 9] = [0; 9];
-        if include_masked {
-            out[0] = v[0] + v[7];
-            out[1] = v[1] + v[8];
-            out[2] = v[2] + v[9];
-            out[3] = v[3] + v[10];
-            out[4] = v[4] + v[11];
-            out[5] = v[5] + v[12];
-            out[6] = v[6] + v[13];
-        } else {
-            out[0] = v[0];
-            out[1] = v[1];
-            out[2] = v[2];
-            out[3] = v[3];
-            out[4] = v[4];
-            out[5] = v[5];
-            out[6] = v[6];
-        }
+        out[0] = v[0] + v[7];
+        out[1] = v[1] + v[8];
+        out[2] = v[2] + v[9];
+        out[3] = v[3] + v[10];
+        out[4] = v[4] + v[11];
+        out[5] = v[5] + v[12];
+        out[6] = v[6] + v[13];
         out[7] = v[15];
         out[8] = v[16];
         out
     }
-    pub fn count_all_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 9] {
+    pub fn get_unmasked_result(v: &[usize; 23]) -> [usize; 9] {
+        // #A, #C, #G, #T, #2, #3, #4, #CpG, #GC
+        let mut out: [usize; 9] = [0; 9];
+        out[0] = v[0];
+        out[1] = v[1];
+        out[2] = v[2];
+        out[3] = v[3];
+        out[4] = v[4];
+        out[5] = v[5];
+        out[6] = v[6];
+        out[7] = v[15];
+        out[8] = v[16];
+        out
+    }
+    pub fn count_all_nc(count: &mut [usize; 23], seq: &[u8], start: usize, end: usize) {
         // count: 0-14 'A'-'X'; 15-17 CpG, CpG-rc, others
-        let mut count: [usize; 23] = [0; 23];
+        // let mut count: [usize; 23] = [0; 23];
         let (mut cur_b, mut next_b): (usize, usize) = (0, 0);
         seq[start..end].windows(2).for_each(|b| {
             cur_b = Self::get_iupac_index_from_u8(b[0]);
@@ -140,10 +144,9 @@ impl SeqComp {
         });
         cur_b = Self::get_iupac_index_from_u8(seq[end - 1]);
         count[cur_b] += 1;
-        Self::get_comp_output(&count, true)
     }
-    pub fn count_unmasked_nucleotides(seq: &[u8], start: usize, end: usize) -> [usize; 9] {
-        let mut count: [usize; 23] = [0; 23];
+    pub fn count_unmasked_nc(count: &mut [usize; 23], seq: &[u8], start: usize, end: usize) {
+        // let mut count: [usize; 23] = [0; 23];
         let mut cur_b: usize = 0;
         seq[start..end].windows(2).for_each(|b| {
             cur_b = Self::get_iupac_index_from_u8(b[0]);
@@ -159,7 +162,6 @@ impl SeqComp {
         if cur_b < 7 {
             count[cur_b] += 1;
         }
-        Self::get_comp_output(&count, false)
     }
 }
 
@@ -190,7 +192,7 @@ mod tests {
         assert_eq!(get_cp(b'g', b'g', false), 3, "err5");
         assert_eq!(get_cp(b'n', b'g', false), 3, "err6");
         assert_eq!(get_cp(b'a', b'T', false), 3, "err7");
-        
+
         assert_eq!(get_cp(b'C', b'G', true), 1, "err8");
         assert_eq!(get_cp(b'c', b'g', true), 3, "err9");
         assert_eq!(get_cp(b'G', b'C', true), 2, "err10");
@@ -203,28 +205,38 @@ mod tests {
 
     #[test]
     fn test_count_nucleotides() {
+        fn get_count(seq: &[u8], start: usize, end: usize, all: bool) -> [usize; 9] {
+            let mut count: [usize; 23] = [0; 23];
+            if all {
+                SeqComp::count_all_nc(&mut count, seq, start, end);
+                SeqComp::get_all_result(&count)
+            } else {
+                SeqComp::count_unmasked_nc(&mut count, seq, start, end);
+                SeqComp::get_unmasked_result(&count)
+            }
+        }
         let record = Record::with_attrs(
             "ID1",
             None,
             b"CGTACCGCGACGATCGATcgACTTGCGTNNnNAGTCRYSWKMCCCATCgCTTryswkmBDhV",
             b"qewr4gjiroeggfryremb[trdgqewr4gjiroeggfryremb[trdgryremb[trdge",
         );
-        let count = SeqComp::count_all_nucleotides(record.seq(), 0, 25);
-        assert_eq!(count, [5,8,7,5,0,0,0,6,1], "err1");
-        let count = SeqComp::count_all_nucleotides(record.seq(), 25, 58);
-        assert_eq!(count, [2,7,3,5,12,0,4,2,1], "err2");
-        let count = SeqComp::count_all_nucleotides(record.seq(), 58, 62);
-        assert_eq!(count, [0,0,0,0,0,4,0,0,0], "err3");
-        let count = SeqComp::count_all_nucleotides(record.seq(), 0, record.seq().len());
-        assert_eq!(count, [7,15,10,10,12,4,4,8,3], "err4");
+        let count = get_count(record.seq(), 0, 25, true);
+        assert_eq!(count, [5, 8, 7, 5, 0, 0, 0, 6, 1], "err1");
+        let count = get_count(record.seq(), 25, 58, true);
+        assert_eq!(count, [2, 7, 3, 5, 12, 0, 4, 2, 1], "err2");
+        let count = get_count(record.seq(), 58, 62, true);
+        assert_eq!(count, [0, 0, 0, 0, 0, 4, 0, 0, 0], "err3");
+        let count = get_count(record.seq(), 0, record.seq().len(), true);
+        assert_eq!(count, [7, 15, 10, 10, 12, 4, 4, 8, 3], "err4");
 
-        let count = SeqComp::count_unmasked_nucleotides(record.seq(), 0, 25);
-        assert_eq!(count, [5,7,6,5,0,0,0,5,1], "err5");
-        let count = SeqComp::count_unmasked_nucleotides(record.seq(), 25, 58);
-        assert_eq!(count, [2,7,2,5,6,0,3,1,0], "err6");
-        let count = SeqComp::count_unmasked_nucleotides(record.seq(), 58, 62);
-        assert_eq!(count, [0,0,0,0,0,3,0,0,0], "err7");
-        let count = SeqComp::count_unmasked_nucleotides(record.seq(), 0, record.seq().len());
-        assert_eq!(count, [7,14,8,10,6,3,3,6,2], "err8");
+        let count = get_count(record.seq(), 0, 25, false);
+        assert_eq!(count, [5, 7, 6, 5, 0, 0, 0, 5, 1], "err5");
+        let count = get_count(record.seq(), 25, 58, false);
+        assert_eq!(count, [2, 7, 2, 5, 6, 0, 3, 1, 0], "err6");
+        let count = get_count(record.seq(), 58, 62, false);
+        assert_eq!(count, [0, 0, 0, 0, 0, 3, 0, 0, 0], "err7");
+        let count = get_count(record.seq(), 0, record.seq().len(), false);
+        assert_eq!(count, [7, 14, 8, 10, 6, 3, 3, 6, 2], "err8");
     }
 }

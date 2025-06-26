@@ -83,7 +83,7 @@ pub fn parse_fasta(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let mparas = MaskParas::from(seq);
     let oparas = OutArgs::from(seq);
     let bed_map = match &mparas.mask_regions {
-        Some(bed_path) => bed::get_bed_map(bed_path)?,
+        Some(bed_path) => BedMap::from(bed_path)?,
         None => BedMap::new(),
     };
     let fa_iter = FaReader::new(path)?;
@@ -102,7 +102,7 @@ pub fn parse_fastq(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let mparas = MaskParas::from(seq);
     let oparas = OutArgs::from(seq);
     let bed_map = match &mparas.mask_regions {
-        Some(bed_path) => bed::get_bed_map(bed_path)?,
+        Some(bed_path) => BedMap::from(bed_path)?,
         None => BedMap::new(),
     };
 

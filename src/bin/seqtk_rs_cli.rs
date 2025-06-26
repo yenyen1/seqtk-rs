@@ -18,29 +18,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
 
         sub_cli::Commands::Sample(sample) => {
-            if let Some(in_fq) = &sample.in_fq {
-                subsample::subsample_fastx(in_fq, sample, false)?;
+            if let Some(fq) = &sample.in_fq {
+                subsample::subsample_fastx(fq, sample, false)?;
             }
-            if let Some(in_fa) = &sample.in_fa {
-                subsample::subsample_fastx(in_fa, sample, true)?;
+            if let Some(fa) = &sample.in_fa {
+                subsample::subsample_fastx(fa, sample, true)?;
             }
         }
 
         sub_cli::Commands::Size(size) => {
-            if let Some(in_fq) = &size.in_fq {
-                size::calc_fq_size(in_fq)?;
+            if let Some(fq) = &size.in_fq {
+                size::calc_fq_size(fq)?;
             }
-            if let Some(in_fa) = &size.in_fa {
-                size::calc_fa_size(in_fa)?;
+            if let Some(fa) = &size.in_fa {
+                size::calc_fa_size(fa)?;
             }
         }
 
         sub_cli::Commands::Comp(comp) => {
-            if let Some(in_fq) = &comp.in_fq {
-                nc_comp::calc_fq_comp(in_fq, comp.exclude_masked)?;
+            if let Some(fq) = &comp.in_fq {
+                match &comp.in_bed {
+                    Some(bed) => nc_comp::calc_fq_comp_with_bed(fq, bed, comp.exclude_masked)?,
+                    None => nc_comp::calc_fq_comp_wo_bed(fq, comp.exclude_masked)?,
+                }
             }
-            if let Some(in_fa) = &comp.in_fa {
-                nc_comp::calc_fa_comp(in_fa, comp.exclude_masked)?;
+            if let Some(fa) = &comp.in_fa {
+                match &comp.in_bed {
+                    Some(bed) => nc_comp::calc_fa_comp_with_bed(fa, bed, comp.exclude_masked)?,
+                    None => nc_comp::calc_fa_comp_wo_bed(fa, comp.exclude_masked)?,
+                }
             }
         }
 
