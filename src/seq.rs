@@ -89,10 +89,14 @@ pub fn parse_fasta(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let fa_iter = FaReader::new(path)?;
     let mut fx_writer = FxWriter::new(oparas.output_fasta);
     for (i, record) in fa_iter.records().enumerate() {
-        let read = record.unwrap();
-        let is_pass = is_pass(i + 1, &read, &fparas);
-        if is_pass {
-            modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, true)?;
+        match record {
+            Ok(read) => {
+                let is_pass = is_pass(i + 1, &read, &fparas);
+                if is_pass {
+                    modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, true)?;
+                }
+            }
+            Err(e) => eprintln!("Error read fASTA: {}", e),
         }
     }
     Ok(())
@@ -109,10 +113,21 @@ pub fn parse_fastq(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let fq_iter = FqReader::new(path)?;
     let mut fx_writer = FxWriter::new(oparas.output_fasta);
     for (i, record) in fq_iter.records().enumerate() {
-        let read = record.unwrap();
-        let is_pass = is_pass(i + 1, &read, &fparas);
-        if is_pass {
-            modify_and_print_read(&mut fx_writer, &read, &mparas, &oparas, &bed_map, false)?;
+        match record {
+            Ok(read) => {
+                let is_pass = is_pass(i + 1, &read, &fparas);
+                if is_pass {
+                    modify_and_print_read(
+                        &mut fx_writer,
+                        &read,
+                        &mparas,
+                        &oparas,
+                        &bed_map,
+                        false,
+                    )?;
+                }
+            }
+            Err(e) => eprintln!("Error read fASTQ: {}", e),
         }
     }
 
