@@ -13,14 +13,17 @@ pub struct Cli {
 pub enum Commands {
     /// Common transformation of FASTA/Q
     Seq(SeqArgs),
-    /// fastq QC summary
-    Fqchk(FqchkArgs),
+
     /// Random Sampling given seed and fraction
     Sample(SampleArgs),
-    /// Report the number of sequence and bases
+    /// Report the number of sequence and bases (Output: #seq, #bases, avg_size, min_size, med_size, max_size, N50)
     Size(SizeArgs),
-    /// Report the nucleotide composition of FASTA/Q
+    /// Report fastq QC summary
+    Fqchk(FqchkArgs),
+    /// Report the nucleotide composition of FASTA/Q (Output: #A, #C, #G, #T, #2, #3, #4, #CG, #GC)
     Comp(CompArgs),
+    /// Trim sequence
+    Trim(TrimArgs),
 }
 
 #[derive(Args)]
@@ -36,6 +39,15 @@ pub struct FqchkArgs {
     #[arg(short, long)]
     /// ascii value [default: 33]
     pub ascii_base: Option<u8>,
+}
+
+#[derive(Args)]
+pub struct TrimArgs {
+    /// fastq path
+    pub in_fq: String,
+    #[arg(short, long)]
+    /// Error rate threshold [default: 0.05]
+    pub error_thershold: Option<f64>,
 }
 
 #[derive(Args)]

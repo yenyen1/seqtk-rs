@@ -71,7 +71,6 @@ impl BedMap {
             .collect();
         self.map = merged_map;
     }
-    
 }
 
 pub fn is_overlapping(pos: usize, bed_pos: &[BedPos]) -> (bool, usize) {

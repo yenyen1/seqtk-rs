@@ -119,7 +119,7 @@ impl SeqComp {
         out
     }
     pub fn get_unmasked_result(v: &[usize; 23]) -> [usize; 9] {
-        // #A, #C, #G, #T, #2, #3, #4, #CpG, #GC
+        // #A, #C, #G, #T, #2, #3, #4, #CG, #GC
         let mut out: [usize; 9] = [0; 9];
         out[0] = v[0];
         out[1] = v[1];
