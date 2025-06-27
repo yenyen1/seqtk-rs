@@ -6,8 +6,12 @@ pub fn calc_fq_size(path: &str) -> Result<(), std::io::Error> {
     let fq_iter = FqReader::new(path)?;
     let mut seq_len: Vec<usize> = Vec::new();
     for record in fq_iter.records() {
-        let read = record.unwrap();
-        seq_len.push(read.seq().len());
+        match record {
+            Ok(read) => {
+                seq_len.push(read.seq().len());
+            }
+            Err(e) => eprintln!("Error read fASTQ: {}", e),
+        }
     }
     seq_len.par_sort_unstable();
     let result = get_result_str(&seq_len);
@@ -22,8 +26,12 @@ pub fn calc_fa_size(path: &str) -> Result<(), std::io::Error> {
     let fa_iter = FaReader::new(path)?;
     let mut seq_len: Vec<usize> = Vec::new();
     for record in fa_iter.records() {
-        let read = record.unwrap();
-        seq_len.push(read.seq().len());
+        match record {
+            Ok(read) => {
+                seq_len.push(read.seq().len());
+            }
+            Err(e) => eprintln!("Error read fASTA: {}", e),
+        }
     }
     seq_len.par_sort_unstable();
     let result = get_result_str(&seq_len);
@@ -33,8 +41,8 @@ pub fn calc_fa_size(path: &str) -> Result<(), std::io::Error> {
     Ok(())
 }
 
-fn get_result_str(sorted_seq_len: &Vec<usize>) -> String {
-    // #seq, #bases, avg_size ; min_size ; med_size ; max_size ; N50\n
+fn get_result_str(sorted_seq_len: &[usize]) -> String {
+    // #seq, #bases, avg_size, min_size, med_size, max_size, N50
     let sum: usize = sorted_seq_len.iter().sum();
     let size = sorted_seq_len.len();
     let median = match size {
