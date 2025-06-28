@@ -1,6 +1,7 @@
 mod bed;
-pub mod dna;
+mod dna;
 pub mod fq_check;
+pub mod fqchk;
 mod io_utils;
 pub mod nc_comp;
 mod qual_map;

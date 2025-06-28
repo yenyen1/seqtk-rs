@@ -130,12 +130,12 @@ pub fn calc_fa_comp_with_bed(
     }
     Ok(())
 }
-fn cal_all_seq<T:RecordType>(read: &T) -> [usize; 9] {
+fn cal_all_seq<T: RecordType>(read: &T) -> [usize; 9] {
     let mut count: [usize; 23] = [0; 23];
     SeqComp::count_all_nc(&mut count, read.seq(), 0, read.seq().len());
     SeqComp::get_all_result(&count)
 }
-fn cal_unmasked_seq<T:RecordType>(read: &T) -> [usize; 9] {
+fn cal_unmasked_seq<T: RecordType>(read: &T) -> [usize; 9] {
     let mut count: [usize; 23] = [0; 23];
     SeqComp::count_unmasked_nc(&mut count, read.seq(), 0, read.seq().len());
     SeqComp::get_unmasked_result(&count)
@@ -147,7 +147,7 @@ fn cal_all_seq_with_bed<T: RecordType>(read: &T, bedmap: &BedMap) -> Option<[usi
             SeqComp::count_all_nc(&mut count, read.seq(), pos.0, pos.1);
         });
         let result = SeqComp::get_all_result(&count);
-        return Some(result)
+        return Some(result);
     }
     None
 }
@@ -158,7 +158,7 @@ fn cal_unmasked_seq_with_bed<T: RecordType>(read: &T, bedmap: &BedMap) -> Option
             SeqComp::count_unmasked_nc(&mut count, read.seq(), pos.0, pos.1);
         });
         let result = SeqComp::get_unmasked_result(&count);
-        return Some(result)
+        return Some(result);
     }
     None
 }

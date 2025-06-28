@@ -1,20 +1,26 @@
 use clap::Parser;
-use seqtk_rs::{fq_check, nc_comp, seq, size, sub_cli, subsample};
+use seqtk_rs::{fqchk, nc_comp, seq, size, sub_cli, subsample};
 use std::time::Instant;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start = Instant::now();
     let cli = sub_cli::Cli::parse();
-    let out = "test".to_string();
 
     match &cli.command {
         sub_cli::Commands::Fqchk(fqchk) => {
-            fq_check::fq_check(
-                &fqchk.in_fq,
-                &fqchk.out.clone().unwrap_or(out),
-                fqchk.quality_value.unwrap_or(0),
-                fqchk.ascii_base.unwrap_or(33),
-            )?;
+            let qthreshold = fqchk.quality_value.unwrap_or(0);
+            let ascii = fqchk.ascii_base.unwrap_or(33);
+            if qthreshold == 0 {
+                fqchk::fqchk_all(&fqchk.in_fq, ascii as usize)?;
+            } else {
+                fqchk::fqchk_with_q(&fqchk.in_fq, qthreshold + ascii)?;
+            }
+            // fq_check::fq_check(
+            //     &fqchk.in_fq,
+            //     &fqchk.out.clone().unwrap_or(out),
+            //     fqchk.quality_value.unwrap_or(0),
+            //     fqchk.ascii_base.unwrap_or(33),
+            // )?;
         }
 
         sub_cli::Commands::Sample(sample) => {
@@ -35,7 +41,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        sub_cli::Commands::Trim(trim) => {}
+        sub_cli::Commands::Trim(_) => {}
 
         sub_cli::Commands::Comp(comp) => {
             if let Some(fq) = &comp.in_fq {

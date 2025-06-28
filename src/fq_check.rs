@@ -103,17 +103,6 @@ fn parse_fq_and_write_length_and_qual_stats(
     qual_threshold: u8,
     ascii_bases: u8,
 ) -> Result<(usize, HashMap<u8, usize>), Box<dyn std::error::Error>> {
-    // fn get_read_len_stats_str(sorted_reads_size: &[u32]) -> String {
-    //     format!(
-    //         "[Length] {} reads; mean={:2} ; min={} ; med={} ; max={} ; N50={}\n",
-    //         sorted_reads_size.len(),
-    //         stats::average(sorted_reads_size),
-    //         sorted_reads_size.first().unwrap(),
-    //         stats::median_sorted_arr(sorted_reads_size),
-    //         sorted_reads_size.last().unwrap(),
-    //         stats::n50_sorted_arr(sorted_reads_size).unwrap()
-    //     )
-    // }
     fn get_colname_str(
         qual_threshold: u8,
         qual_set: HashSet<u8>,
@@ -145,7 +134,6 @@ fn parse_fq_and_write_length_and_qual_stats(
         qual_set.extend(cur_read.qual());
     }
     reads_size.par_sort_unstable();
-    // let mut out_string = get_read_len_stats_str(&reads_size);
     let mut out_string = String::new();
 
     out_string.push_str(&format!(

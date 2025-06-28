@@ -14,11 +14,11 @@ pub enum Commands {
     /// Common transformation of FASTA/Q
     Seq(SeqArgs),
 
-    /// Random Sampling given seed and fraction
+    /// Random Sampling by given seed and fraction
     Sample(SampleArgs),
-    /// Report the number of sequence and bases (Output: #seq, #bases, avg_size, min_size, med_size, max_size, N50)
+    /// Report the stats of sequence length (Output: #seq, #bases, avg_size, min_size, med_size, max_size, N50)
     Size(SizeArgs),
-    /// Report fastq QC summary
+    /// Report stats for sequence and quality by position (Output: POS, #bases, %A, %C, %G, %T, %N, avgQ, errQ, ...)
     Fqchk(FqchkArgs),
     /// Report the nucleotide composition of FASTA/Q (Output: #A, #C, #G, #T, #2, #3, #4, #CG, #GC)
     Comp(CompArgs),
