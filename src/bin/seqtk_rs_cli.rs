@@ -13,7 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             if qthreshold == 0 {
                 fqchk::fqchk_all(&fqchk.in_fq, ascii as usize)?;
             } else {
-                fqchk::fqchk_with_q(&fqchk.in_fq, qthreshold + ascii)?;
+                fqchk::fqchk_with_q(&fqchk.in_fq, qthreshold + ascii, ascii as usize)?;
             }
             // fq_check::fq_check(
             //     &fqchk.in_fq,
