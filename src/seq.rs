@@ -43,7 +43,7 @@ impl MaskParas {
         }
     }
 }
-pub struct OutArgs {
+struct OutArgs {
     output_qual_shift: u8,
     fake_fastq_quality: Option<char>,
     output_fasta: bool,
@@ -78,6 +78,16 @@ impl OutArgs {
     }
 }
 
+/// Parses FASTA file and transforms the sequences according to the arguments.
+/// Outputs the results to [`std::io::stdout()`] in FASTA/Q format.
+///
+/// # Arguments
+///
+/// Check the arguments by `--help`
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
 pub fn parse_fasta(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let fparas = FilterParas::from(seq);
     let mparas = MaskParas::from(seq);
@@ -101,6 +111,16 @@ pub fn parse_fasta(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     }
     Ok(())
 }
+/// Parses FASTQ file and transforms the sequences according to the arguments.
+/// Outputs the results to [`std::io::stdout()`] in FASTA/Q format.
+///
+/// # Arguments
+///
+/// Check the arguments by `--help`
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
 pub fn parse_fastq(path: &str, seq: &SeqArgs) -> Result<(), std::io::Error> {
     let fparas = FilterParas::from(seq);
     let mparas = MaskParas::from(seq);

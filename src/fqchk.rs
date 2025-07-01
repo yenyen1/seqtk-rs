@@ -11,7 +11,7 @@ use std::fmt::Write;
 /// - `#bases`: Number of bases at this position
 /// - `%A`, `%C`, `%G`, `%T`, `%N`: Percentage of each nucleotide
 /// - `avgQ`: Average quality score `(Q₁ + Q₂ + ... + Qₙ) / N`
-/// - `errQ`: Estimated error rate `-10 * log₁₀((P₁ + P₂ + ... + Pₙ) / N)`
+/// - `errQ`: Estimated average base error probability, converted to a Phred-scaled quality score. `-10 * log₁₀{(P₁ + P₂ + ... + Pₙ) / N}`
 /// - `%Qx`: Percentage of each quality score
 ///
 /// # Arguments
@@ -22,7 +22,15 @@ use std::fmt::Write;
 /// # Errors
 ///
 /// Return an error if the operation cannot be completed.
-pub fn get_fqchk_result_wo_qual_threshold(
+/// 
+/// # Notes
+/// 
+/// Some tools treat quality scores less than 3 (`Q < 3`) as 3 to avoid instability in downstream metrics.
+/// For example, `Q = 0` yields an error probability `P = 1.0`, `Q = 1` gives `P ≈ 0.794`, and `Q = 2` gives `P ≈ 0.630`.
+/// These low Q-scores can heavily skew error rate calculations (e.g., `errQ`), which is why they are often floored to 3.
+/// However, this adjustment can lead to results that are inconsistent with the original definition.
+/// Therefore, this tool preserves the original quality scores as-is.
+pub fn get_result_wo_qthreshold(
     path: &str,
     asciibase: usize,
 ) -> Result<(), std::io::Error> {
@@ -51,7 +59,15 @@ pub fn get_fqchk_result_wo_qual_threshold(
 /// # Errors
 ///
 /// Return an error if the operation cannot be completed.
-pub fn get_fqchk_with_qual_threshold(
+/// 
+/// # Notes
+/// 
+/// Some tools treat quality scores less than 3 (`Q < 3`) as 3 to avoid instability in downstream metrics.
+/// For example, `Q = 0` yields an error probability `P = 1.0`, `Q = 1` gives `P ≈ 0.794`, and `Q = 2` gives `P ≈ 0.630`.
+/// These low Q-scores can heavily skew error rate calculations (e.g., `errQ`), which is why they are often floored to 3.
+/// However, this adjustment can lead to results that are inconsistent with the original definition.
+/// Therefore, this tool preserves the original quality scores as-is.
+pub fn get_result_with_qthreshold(
     path: &str,
     q_plus_ascii: u8,
     asciibase: usize,

@@ -3,6 +3,26 @@ use crate::dna::SeqComp;
 use crate::io_utils::{FaReader, FqReader, Output};
 use crate::record::RecordType;
 
+/// Parses FASTQ file and compute the statistic w/o masked sequences.
+/// Outputs the results to [`std::io::stdout()`].
+///The output columns are:
+/// - `#seq`: Number of reads
+/// - `#bases`: Number of bases
+/// - `#A`, `#C`, `#G`, `#T`: Number of each nucleotide
+/// - `#2`: Number of `R`, `Y`, `S`, `W`, `K`, `M`
+/// - `#3`: Number of `B`, `D`, `H`, `V`
+/// - `#4`: Number of `N`
+/// - `CG`: Number of `CG` on the template strand
+/// - `GC`: Number of `GC` on the template strand
+///
+/// # Arguments
+///
+/// * `path` - FASTQ path
+/// * `exclude_masked` - If true, masked sequences (e.g., lowercases or char other then IUPAC code) will be excluded from the output.
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
 pub fn calc_fq_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::io::Error> {
     let fq_iter = FqReader::new(path)?;
     let mut output = Output::new();
@@ -29,6 +49,26 @@ pub fn calc_fq_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::
     }
     Ok(())
 }
+/// Parses FASTA file and compute the statistic w/o masked sequences.
+/// Outputs the results to [`std::io::stdout()`].
+///The output columns are:
+/// - `#seq`: Number of reads
+/// - `#bases`: Number of bases
+/// - `#A`, `#C`, `#G`, `#T`: Number of each nucleotide
+/// - `#2`: Number of `R`, `Y`, `S`, `W`, `K`, `M`
+/// - `#3`: Number of `B`, `D`, `H`, `V`
+/// - `#4`: Number of `N`
+/// - `CG`: Number of `CG` on the template strand
+/// - `GC`: Number of `GC` on the template strand
+///
+/// # Arguments
+///
+/// * `path` - FASTA path
+/// * `exclude_masked` - If true, masked sequences (e.g., lowercases or char other then IUPAC code) will be excluded from the output.
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
 pub fn calc_fa_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::io::Error> {
     let fa_iter = FaReader::new(path)?;
     let mut output = Output::new();
@@ -55,7 +95,27 @@ pub fn calc_fa_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::
     }
     Ok(())
 }
-
+/// Parses FASTA file and compute the statistic w/o masked sequences with a BED file.
+/// Outputs the results to [`std::io::stdout()`].
+///The output columns are:
+/// - `#seq`: Number of reads
+/// - `#bases`: Number of bases
+/// - `#A`, `#C`, `#G`, `#T`: Number of each nucleotide
+/// - `#2`: Number of `R`, `Y`, `S`, `W`, `K`, `M`
+/// - `#3`: Number of `B`, `D`, `H`, `V`
+/// - `#4`: Number of `N`
+/// - `CG`: Number of `CG` on the template strand
+/// - `GC`: Number of `GC` on the template strand
+///
+/// # Arguments
+///
+/// * `path` - FASTA path
+/// * `bed` - BED path
+/// * `exclude_masked` - If true, masked sequences (e.g., lowercases or char other then IUPAC code) will be excluded from the output.
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
 pub fn calc_fq_comp_with_bed(
     path: &str,
     bed: &str,
@@ -90,7 +150,27 @@ pub fn calc_fq_comp_with_bed(
     }
     Ok(())
 }
-
+/// Parses FASTQ file and compute the statistic w/o masked sequences with a BED file.
+/// Outputs the results to [`std::io::stdout()`].
+///The output columns are:
+/// - `#seq`: Number of reads
+/// - `#bases`: Number of bases
+/// - `#A`, `#C`, `#G`, `#T`: Number of each nucleotide
+/// - `#2`: Number of `R`, `Y`, `S`, `W`, `K`, `M`
+/// - `#3`: Number of `B`, `D`, `H`, `V`
+/// - `#4`: Number of `N`
+/// - `CG`: Number of `CG` on the template strand
+/// - `GC`: Number of `GC` on the template strand
+///
+/// # Arguments
+///
+/// * `path` - FASTQ path
+/// * `bed` - BED path
+/// * `exclude_masked` - If true, masked sequences (e.g., lowercases or char other then IUPAC code) will be excluded from the output.
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
 pub fn calc_fa_comp_with_bed(
     path: &str,
     bed: &str,

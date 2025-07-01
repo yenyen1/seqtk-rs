@@ -9,9 +9,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let qthreshold = fqchk.quality_value.unwrap_or(0);
             let ascii = fqchk.ascii_base.unwrap_or(33);
             if qthreshold == 0 {
-                fqchk::get_fqchk_result_wo_qual_threshold(&fqchk.in_fq, ascii as usize)?;
+                fqchk::get_result_wo_qthreshold(&fqchk.in_fq, ascii as usize)?;
             } else {
-                fqchk::get_fqchk_with_qual_threshold(
+                fqchk::get_result_with_qthreshold(
                     &fqchk.in_fq,
                     qthreshold + ascii,
                     ascii as usize,

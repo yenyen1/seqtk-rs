@@ -189,6 +189,7 @@ pub struct SeqArgs {
     /// Mask bases that do NOT overlap with the region specified in the BED (effective with --mask-regions / -M)
     pub mask_complement_region: bool,
 }
+/// Validate seq arguments.
 pub fn valiation_seq_args(args: &SeqArgs) -> Result<(), std::io::Error> {
     let mut errors = Vec::new();
     if args.output_even && args.output_odd {

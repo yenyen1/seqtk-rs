@@ -35,18 +35,6 @@ impl FqReader {
     }
 }
 
-// pub struct Output<W: Write> {
-//     writer: W,
-// }
-// impl<W: Write> Output<W> {
-//     pub fn new(writer: W) -> Self {
-//         Output { writer }
-//     }
-//     pub fn write<T: Display>(&mut self, result: T) -> io::Result<()> {
-//         write!(self.writer, "{}", result)
-//     }
-// }
-
 pub struct Output {
     writer: BufWriter<std::io::Stdout>,
 }
