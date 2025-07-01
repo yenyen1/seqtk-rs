@@ -22,8 +22,8 @@ pub enum Commands {
     Fqchk(FqchkArgs),
     /// Report the nucleotide composition of FASTA/Q (Output: #A, #C, #G, #T, #2, #3, #4, #CG, #GC)
     Comp(CompArgs),
-    // /// Trim sequence
-    // Trim(TrimArgs),
+    /// Trim sequence
+    Trim(TrimArgs),
 }
 
 #[derive(Args)]
@@ -42,14 +42,14 @@ pub struct FqchkArgs {
     pub ascii_base: Option<u8>,
 }
 
-// #[derive(Args)]
-// pub struct TrimArgs {
-//     /// fastq path
-//     pub in_fq: String,
-//     #[arg(short, long)]
-//     /// Error rate threshold [default: 0.05]
-//     pub error_thershold: Option<f64>,
-// }
+#[derive(Args)]
+pub struct TrimArgs {
+    /// fastq path
+    pub in_fq: String,
+    #[arg(short, long)]
+    /// Error rate threshold [default: 0.05]
+    pub error_thershold: Option<f64>,
+}
 
 #[derive(Args)]
 #[command(group(
