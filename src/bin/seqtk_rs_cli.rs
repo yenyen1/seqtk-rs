@@ -38,7 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        // sub_cli::Commands::Trim(_) => {}
+        sub_cli::Commands::Trim(_) => {}
         sub_cli::Commands::Comp(comp) => {
             if let Some(fq) = &comp.in_fq {
                 match &comp.in_bed {
