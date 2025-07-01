@@ -3,21 +3,64 @@ use crate::stats;
 use rayon::prelude::*;
 use std::fmt::Write;
 
-pub fn fqchk_all(path: &str,asciibases: usize) -> Result<(), std::io::Error> {
+/// Parses FASTQ data without quality threshold and computes per-position statistics.
+/// Outputs the results to [`std::io::stdout()`].
+///
+/// The output columns are:
+/// - `POS`: Position in the read
+/// - `#bases`: Number of bases at this position
+/// - `%A`, `%C`, `%G`, `%T`, `%N`: Percentage of each nucleotide
+/// - `avgQ`: Average quality score `(Q₁ + Q₂ + ... + Qₙ) / N`
+/// - `errQ`: Estimated error rate `-10 * log₁₀((P₁ + P₂ + ... + Pₙ) / N)`
+/// - `%Qx`: Percentage of each quality score
+///
+/// # Arguments
+///
+/// * `path` - FASTQ path
+/// * `asciibase` - Quality scores equal to the score plus a base offset asciibase.
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
+pub fn get_fqchk_result_wo_qual_threshold(
+    path: &str,
+    asciibase: usize,
+) -> Result<(), std::io::Error> {
     let (maxlen, qualset) = get_maxlen_and_qualset(path)?;
-    cal_seq_all(path, maxlen, &qualset, asciibases)?;
+    cal_seq_all(path, maxlen, &qualset, asciibase)?;
     Ok(())
 }
-// pub fn fqchk_all2(path: &str, _asciibases: usize) -> Result<(), std::io::Error> {
-//     let (maxlen, qualset) = get_maxlen_and_qualset(path)?;
-//     // cal_seq_all2(path, maxlen, &qualset)?;
-//     Ok(())
-// }
-pub fn fqchk_with_q(path: &str, q_plus_ascii: u8, asciibases: usize) -> Result<(), std::io::Error> {
+
+/// Parses FASTQ data with quality threshold and computes per-position statistics.
+/// Outputs the results to [`std::io::stdout()`].
+///
+/// The output columns are:
+/// - `POS`: Position in the read
+/// - `#bases`: Number of bases at this position
+/// - `%A`, `%C`, `%G`, `%T`, `%N`: Percentage of each nucleotide
+/// - `avgQ`: Average quality score `(Q₁ + Q₂ + ... + Qₙ) / N`
+/// - `errQ`: Estimated error rate `-10 * log₁₀((P₁ + P₂ + ... + Pₙ) / N)`
+/// - `%low`, `%high`: Percentage of the nucleotide that the quality scores below or above the threshold, respectively.
+///
+/// # Arguments
+///
+/// * `path` - FASTQ path
+/// * `q_plus_ascii` - The sum of quality threshold and asciibase.
+/// * `asciibase` - Quality score equal to the score plus a base offset asciibase.
+///
+/// # Errors
+///
+/// Return an error if the operation cannot be completed.
+pub fn get_fqchk_with_qual_threshold(
+    path: &str,
+    q_plus_ascii: u8,
+    asciibase: usize,
+) -> Result<(), std::io::Error> {
     let (maxlen, qualset) = get_maxlen_and_qualset(path)?;
-    cal_seq_with_q(path, maxlen, &qualset, asciibases, q_plus_ascii)?;
+    cal_seq_with_q(path, maxlen, &qualset, asciibase, q_plus_ascii)?;
     Ok(())
 }
+
 fn cal_seq_all(
     path: &str,
     maxlen: usize,
@@ -44,7 +87,7 @@ fn cal_seq_all(
                     qual_all[uq] += 1;
                 }
             }
-            Err(e) => eprintln!("Error read fASTQ: {}", e),
+            Err(e) => eprintln!("Error read FASTQ: {}", e),
         }
     }
 
@@ -53,27 +96,29 @@ fn cal_seq_all(
 
     let column = format!(
         "{}\t{}\n",
-        "POS\t#bases\t%A\t%C\t%G\t%T\t%N\tavgQ\terrP",
+        "POS\t#bases\t%A\t%C\t%G\t%T\t%N\tavgQ\terrQ",
         get_qual_cols(qual_set, asciibases)
     );
     output.write(column)?;
 
     let mut total = seq_all.iter().sum();
+    let mut total_f64 = total as f64;
     let mut result = format!(
         "all\t{}\t{}\t{}\n",
         get_seq_result(total, &seq_all),
-        get_avg_err(total, &qual_all, qual_set, asciibases),
-        get_qual_result(total as f64, &qual_all, qual_set),
+        get_avg_err(total_f64, &qual_all, qual_set, asciibases),
+        get_qual_result(total_f64, &qual_all, qual_set),
     );
     output.write(result)?;
     for i in 0..maxlen {
         total = seq_pos_sum[i];
+        total_f64 = total as f64;
         result = format!(
             "{}\t{}\t{}\t{}\n",
-            i+1,
+            i + 1,
             get_seq_result(total, &seq_count_mat[i]),
-            get_avg_err(total, &qual_count_mat[i], qual_set, asciibases),
-            get_qual_result(total as f64, &qual_count_mat[i], qual_set),
+            get_avg_err(total_f64, &qual_count_mat[i], qual_set, asciibases),
+            get_qual_result(total_f64, &qual_count_mat[i], qual_set),
         );
         output.write(result)?;
     }
@@ -104,7 +149,7 @@ fn cal_seq_with_q(
                     let uq = q as usize;
                     qual_count_mat[i][uq] += 1;
                     qual_all[uq] += 1;
-                    if q > q_plus_ascii {
+                    if q >= q_plus_ascii {
                         qual_q_count[i][1] += 1;
                         qual_q_count_all[1] += 1;
                     } else {
@@ -119,25 +164,29 @@ fn cal_seq_with_q(
 
     let out = std::io::stdout();
     let mut output = Output::new(out);
-    let column = format!("{}\t{}\n", "POS\t#bases\t%A\t%C\t%G\t%T\t%N", "%low\t%high",);
+    let column = format!(
+        "{}\t{}\n",
+        "POS\t#bases\t%A\t%C\t%G\t%T\t%N\tavgQ\terrQ", "%low\t%high",
+    );
     output.write(column)?;
     let mut total = qual_q_count_all[0] + qual_q_count_all[1];
+    let mut total_f64 = total as f64;
     let mut result = format!(
         "all\t{}\t{}\t{}\n",
         get_seq_result(total, &seq_all),
-        get_avg_err(total, &qual_all, qual_set, asciibases),
-        // get_avg_err(total, &qual_count_mat[i], qual_set, asciibases),
-        get_qual_with_q_result(total as f64, &qual_q_count_all),
+        get_avg_err(total_f64, &qual_all, qual_set, asciibases),
+        get_qual_with_q_result(total_f64, &qual_q_count_all),
     );
     output.write(result)?;
     for i in 0..maxlen {
         total = qual_q_count[i][0] + qual_q_count[i][1];
+        total_f64 = total as f64;
         result = format!(
             "{}\t{}\t{}\t{}\n",
-            i+1,
-        get_avg_err(total, &qual_all, qual_set, asciibases),
+            i + 1,
             get_seq_result(total, &seq_count_mat[i]),
-            get_qual_with_q_result(total as f64, &qual_q_count[i]),
+            get_avg_err(total_f64, &qual_count_mat[i], qual_set, asciibases),
+            get_qual_with_q_result(total_f64, &qual_q_count[i]),
         );
         output.write(result)?;
     }
@@ -159,7 +208,7 @@ fn get_maxlen_and_qualset(path: &str) -> Result<(usize, Vec<usize>), std::io::Er
                     qual_set[qual as usize] = true;
                 }
             }
-            Err(e) => eprintln!("Error read fASTQ: {}", e),
+            Err(e) => eprintln!("Error read FASTQ: {}", e),
         }
     }
     let uniq_qset: Vec<usize> = qual_set
@@ -169,19 +218,29 @@ fn get_maxlen_and_qualset(path: &str) -> Result<(usize, Vec<usize>), std::io::Er
         .collect();
     Ok((maxlen, uniq_qset))
 }
+
+/// [Note] Some tools treat Q < 3 as Q = 3. I don't do that.
+/// Q = 0 leads to P = 1.0 ; Q = 1 → P = 0.794 ; Q = 2 → P = 0.630.
+/// These small Qs significantly affect and skew the result of errQ.
+/// Therefore, they treat Q < 3 as Q = 3.
 fn get_avg_err(
-    total: usize,
+    total: f64,
     qual_count: &[usize; 256],
     qual_set: &[usize],
     asciibases: usize,
 ) -> String {
     let sum: f64 = qual_set
         .par_iter()
-        .map(|&q| qual_count[q] as f64 * stats::convert_q_score_to_p_err((q - asciibases) as f64))
+        .map(|&q| ((q - asciibases) as f64) * (qual_count[q] as f64))
         .sum();
-    let err_p = sum / total as f64;
-    let avg_q = stats::convert_p_err_to_q_score(err_p);
-    format!("{:.1}\t{:.2}", avg_q, err_p)
+    let avg_q = sum / total;
+    let sum: f64 = qual_set
+        .par_iter()
+        .map(|&q| stats::convert_q_score_to_p_err((q - asciibases) as f64) * (qual_count[q] as f64))
+        .sum();
+    let err_q = stats::convert_p_err_to_q_score(sum / total);
+
+    format!("{:.1}\t{:.1}", avg_q, f64::abs(err_q))
 }
 /// Output: %Qx
 fn get_qual_result(total: f64, qual_count: &[usize; 256], qual_set: &[usize]) -> String {
