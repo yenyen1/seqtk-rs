@@ -1,8 +1,8 @@
 use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
 use std::fmt::Display;
-use std::fs::{File, OpenOptions};
-use std::io::{self, BufRead, BufReader, BufWriter, Stdout, Write};
+use std::fs::File;
+use std::io::{self, BufRead, BufReader, Stdout, Write};
 
 pub fn buffer_reader_maybe_gz(path: &str) -> io::Result<Box<dyn BufRead>> {
     let file = File::open(path)?;
@@ -12,14 +12,6 @@ pub fn buffer_reader_maybe_gz(path: &str) -> io::Result<Box<dyn BufRead>> {
     } else {
         Ok(Box::new(BufReader::new(file)))
     }
-}
-pub fn append_bufwriter(out_path: &str) -> io::Result<BufWriter<File>> {
-    let file = OpenOptions::new()
-        .create(true) // Create the file if it doesn't exist
-        .append(true) // Open the file in append mode (no truncation)
-        .open(out_path)?; // Open the file at the provided path
-    let writer = BufWriter::new(file);
-    Ok(writer)
 }
 
 pub struct FaReader(fasta::Reader<BufReader<Box<dyn BufRead>>>);
