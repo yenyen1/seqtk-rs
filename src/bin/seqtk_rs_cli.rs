@@ -1,6 +1,7 @@
 use clap::Parser;
 use seqtk_rs::{fqchk, nc_comp, seq, size, sub_cli, subsample};
 
+/// Here 1
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = sub_cli::Cli::parse();
 
@@ -37,8 +38,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        sub_cli::Commands::Trim(_) => {}
-
+        // sub_cli::Commands::Trim(_) => {}
         sub_cli::Commands::Comp(comp) => {
             if let Some(fq) = &comp.in_fq {
                 match &comp.in_bed {

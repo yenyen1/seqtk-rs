@@ -22,11 +22,12 @@ pub enum Commands {
     Fqchk(FqchkArgs),
     /// Report the nucleotide composition of FASTA/Q (Output: #A, #C, #G, #T, #2, #3, #4, #CG, #GC)
     Comp(CompArgs),
-    /// Trim sequence
-    Trim(TrimArgs),
+    // /// Trim sequence
+    // Trim(TrimArgs),
 }
 
 #[derive(Args)]
+/// sub_cli 3
 pub struct FqchkArgs {
     /// input fastq path
     pub in_fq: String,
@@ -41,14 +42,14 @@ pub struct FqchkArgs {
     pub ascii_base: Option<u8>,
 }
 
-#[derive(Args)]
-pub struct TrimArgs {
-    /// fastq path
-    pub in_fq: String,
-    #[arg(short, long)]
-    /// Error rate threshold [default: 0.05]
-    pub error_thershold: Option<f64>,
-}
+// #[derive(Args)]
+// pub struct TrimArgs {
+//     /// fastq path
+//     pub in_fq: String,
+//     #[arg(short, long)]
+//     /// Error rate threshold [default: 0.05]
+//     pub error_thershold: Option<f64>,
+// }
 
 #[derive(Args)]
 #[command(group(
@@ -104,8 +105,8 @@ pub struct SampleArgs {
     pub in_fa: Option<String>,
     #[arg(short = 's', long)]
     /// Set the seed for the random number generator. This value ensures reproducibility of the sampling process. (This option takes effect only when used in conjunction with --sample-fraction / -f.) [default: 4]
-    pub random_seed: Option<u64>,
-    #[arg(short = 'f', long)]
+    pub random_seed: Option<usize>,
+    #[arg(short = 'f', long, value_parser = validate_ratio)]
     /// Specify the fraction of the total dataset to sample. The value is a FLOAT between 0 and 1. For example, a value of 0.1 will sample 10% of the data.
     pub sample_fraction: Option<f64>,
 }
@@ -218,4 +219,15 @@ pub fn valiation_seq_args(args: &SeqArgs) -> Result<(), std::io::Error> {
         std::process::exit(1);
     }
     Ok(())
+}
+
+fn validate_ratio(s: &str) -> Result<f64, String> {
+    let val: f64 = s
+        .parse()
+        .map_err(|_| "Must be a valid floating-point number".to_string())?;
+    if (0.0..=1.0).contains(&val) {
+        Ok(val)
+    } else {
+        Err("Value must be between 0.0 and 1.0 (inclusive)".to_string())
+    }
 }

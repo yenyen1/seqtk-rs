@@ -22,18 +22,15 @@ use std::fmt::Write;
 /// # Errors
 ///
 /// Return an error if the operation cannot be completed.
-/// 
+///
 /// # Notes
-/// 
+///
 /// Some tools treat quality scores less than 3 (`Q < 3`) as 3 to avoid instability in downstream metrics.
 /// For example, `Q = 0` yields an error probability `P = 1.0`, `Q = 1` gives `P ≈ 0.794`, and `Q = 2` gives `P ≈ 0.630`.
 /// These low Q-scores can heavily skew error rate calculations (e.g., `errQ`), which is why they are often floored to 3.
 /// However, this adjustment can lead to results that are inconsistent with the original definition.
 /// Therefore, this tool preserves the original quality scores as-is.
-pub fn get_result_wo_qthreshold(
-    path: &str,
-    asciibase: usize,
-) -> Result<(), std::io::Error> {
+pub fn get_result_wo_qthreshold(path: &str, asciibase: usize) -> Result<(), std::io::Error> {
     let (maxlen, qualset) = get_maxlen_and_qualset(path)?;
     cal_seq_all(path, maxlen, &qualset, asciibase)?;
     Ok(())
@@ -59,9 +56,9 @@ pub fn get_result_wo_qthreshold(
 /// # Errors
 ///
 /// Return an error if the operation cannot be completed.
-/// 
+///
 /// # Notes
-/// 
+///
 /// Some tools treat quality scores less than 3 (`Q < 3`) as 3 to avoid instability in downstream metrics.
 /// For example, `Q = 0` yields an error probability `P = 1.0`, `Q = 1` gives `P ≈ 0.794`, and `Q = 2` gives `P ≈ 0.630`.
 /// These low Q-scores can heavily skew error rate calculations (e.g., `errQ`), which is why they are often floored to 3.
@@ -275,9 +272,9 @@ fn get_qual_result(buf: &mut String, total: f64, qual_count: &[usize; 256], qual
 }
 /// Output: %low, %high
 fn get_qual_result_with_q(buf: &mut String, total_f64: f64, qual_count: &[usize; 2]) {
-    write!(
+    writeln!(
         buf,
-        "{:.1}\t{:.1}\n",
+        "{:.1}\t{:.1}",
         qual_count[0] as f64 * 100.0 / total_f64,
         qual_count[1] as f64 * 100.0 / total_f64,
     )
