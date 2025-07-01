@@ -7,12 +7,14 @@ description = "Pure rust version of seqtk"
 license = "MIT OR Apache-2.0"
 homepage = "https://github.com/yenyen1/seqtk-rs"
 repository = "https://github.com/yenyen1/seqtk-rs"
+keywords = ["fastq", "fasta", "bio", "sequence", "NGS"]
+categories = ["science::bioinformatics", "science"]
+exclude = ["/.github/*", "*.ipynb", "./scripts/*", "examples/*", "tests/"]
 
 [dependencies]
 bio = "2.3.0"
 clap = { version = "4.5.24", features = ["derive"] }
 flate2 = "1.1.2"
-ndarray = {version = "0.16.1", features = ["rayon"]}
 rand = "0.9.1"
 rayon = "1.10.0"
 colored = "3.0.0"
