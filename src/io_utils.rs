@@ -2,7 +2,7 @@ use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
 use std::fmt::Display;
 use std::fs::File;
-use std::io::{self, BufRead, BufReader, Stdout, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Stdout, Write};
 
 pub fn buffer_reader_maybe_gz(path: &str) -> io::Result<Box<dyn BufRead>> {
     let file = File::open(path)?;
@@ -35,12 +35,26 @@ impl FqReader {
     }
 }
 
-pub struct Output<W: Write> {
-    writer: W,
+// pub struct Output<W: Write> {
+//     writer: W,
+// }
+// impl<W: Write> Output<W> {
+//     pub fn new(writer: W) -> Self {
+//         Output { writer }
+//     }
+//     pub fn write<T: Display>(&mut self, result: T) -> io::Result<()> {
+//         write!(self.writer, "{}", result)
+//     }
+// }
+
+pub struct Output {
+    writer: BufWriter<std::io::Stdout>,
 }
-impl<W: Write> Output<W> {
-    pub fn new(writer: W) -> Self {
-        Output { writer }
+impl Output {
+    pub fn new() -> Self {
+        let out = std::io::stdout();
+        let buffer_out = BufWriter::new(out);
+        Output { writer: buffer_out }
     }
     pub fn write<T: Display>(&mut self, result: T) -> io::Result<()> {
         write!(self.writer, "{}", result)

@@ -1,6 +1,5 @@
 use crate::io_utils::{FaReader, FqReader, Output};
 use rayon::slice::ParallelSliceMut;
-use std::io;
 
 pub fn calc_fq_size(path: &str) -> Result<(), std::io::Error> {
     let fq_iter = FqReader::new(path)?;
@@ -15,8 +14,7 @@ pub fn calc_fq_size(path: &str) -> Result<(), std::io::Error> {
     }
     seq_len.par_sort_unstable();
     let result = get_result_str(&seq_len);
-    let stdout = io::stdout();
-    let mut output = Output::new(stdout);
+    let mut output = Output::new();
 
     output.write(result)?;
     Ok(())
@@ -35,8 +33,7 @@ pub fn calc_fa_size(path: &str) -> Result<(), std::io::Error> {
     }
     seq_len.par_sort_unstable();
     let result = get_result_str(&seq_len);
-    let stdout = io::stdout();
-    let mut output = Output::new(stdout);
+    let mut output = Output::new();
     output.write(result)?;
     Ok(())
 }

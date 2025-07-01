@@ -2,12 +2,10 @@ use crate::bed::BedMap;
 use crate::dna::SeqComp;
 use crate::io_utils::{FaReader, FqReader, Output};
 use crate::record::RecordType;
-use std::io::{self, Stdout};
 
 pub fn calc_fq_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::io::Error> {
     let fq_iter = FqReader::new(path)?;
-    let stdout = io::stdout();
-    let mut output = Output::new(stdout);
+    let mut output = Output::new();
     if exclude_masked {
         for record in fq_iter.records() {
             match record {
@@ -33,8 +31,7 @@ pub fn calc_fq_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::
 }
 pub fn calc_fa_comp_wo_bed(path: &str, exclude_masked: bool) -> Result<(), std::io::Error> {
     let fa_iter = FaReader::new(path)?;
-    let stdout = io::stdout();
-    let mut output = Output::new(stdout);
+    let mut output = Output::new();
     if exclude_masked {
         for record in fa_iter.records() {
             match record {
@@ -65,8 +62,7 @@ pub fn calc_fq_comp_with_bed(
     exclude_masked: bool,
 ) -> Result<(), std::io::Error> {
     let fq_iter = FqReader::new(path)?;
-    let stdout = io::stdout();
-    let mut output = Output::new(stdout);
+    let mut output = Output::new();
     if exclude_masked {
         let bedmap = BedMap::from(bed)?;
         for record in fq_iter.records() {
@@ -101,8 +97,7 @@ pub fn calc_fa_comp_with_bed(
     exclude_masked: bool,
 ) -> Result<(), std::io::Error> {
     let fa_iter = FaReader::new(path)?;
-    let stdout = io::stdout();
-    let mut output = Output::new(stdout);
+    let mut output = Output::new();
     if exclude_masked {
         let bedmap = BedMap::from(bed)?;
         for record in fa_iter.records() {
@@ -163,7 +158,7 @@ fn cal_unmasked_seq_with_bed<T: RecordType>(read: &T, bedmap: &BedMap) -> Option
     None
 }
 fn print(
-    output: &mut Output<Stdout>,
+    output: &mut Output,
     id: &str,
     size: usize,
     count: &[usize; 9],

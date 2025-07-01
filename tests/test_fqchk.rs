@@ -25,7 +25,6 @@ mod tests {
         let expect_content = fs::read("tests/data/fqchk/result_for_test_cp.txt").expect("");
         assert_eq!(output.as_bytes(), expect_content, "Err1");
 
-        
         // 02 - two recrod
         let args: Vec<&str> = "fqchk  tests/data/fqchk/test_fqchk.fastq -q 10"
             .split_whitespace()
@@ -41,6 +40,5 @@ mod tests {
         let output = run_program_with_args(&args);
         let expect_content = fs::read("tests/data/fqchk/result_for_test_fqchk2.txt").expect("");
         assert_eq!(output.as_bytes(), expect_content, "Err3");
-
     }
 }
