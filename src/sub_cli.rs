@@ -22,7 +22,7 @@ pub enum Commands {
     Fqchk(FqchkArgs),
     /// Report the nucleotide composition of FASTA/Q (Output: #A, #C, #G, #T, #2, #3, #4, #CG, #GC)
     Comp(CompArgs),
-    /// Trim sequence
+    /// Trim FASTQ sequence by quality ("expected-error-rate" or "sliding-window")
     Trim(TrimArgs),
 }
 
@@ -46,9 +46,22 @@ pub struct FqchkArgs {
 pub struct TrimArgs {
     /// fastq path
     pub in_fq: String,
+    #[arg(
+        short,
+        long,
+        help = "'expected-error-rate': trim the reads from the end until they meet the error rate threshold or reach a minimum length. \n\
+    'sliding-window': "
+    )]
+    pub method: Option<String>,
     #[arg(short, long)]
-    /// Error rate threshold [default: 0.05]
-    pub error_thershold: Option<f64>,
+    /// Trim the read from the end until the expected error rate is less than or equal to FLOAT. [default: 1.0]
+    pub error_rate_thershold: Option<f64>,
+    #[arg(short, long)]
+    /// Minimum allowed length for a read after trimming. Trimming stops once this length is reached, even if the error threshold hasn’t been met. [default: 30]
+    pub min_length: Option<usize>,
+    #[arg(long)]
+    /// If enabled, reads that still exceed the error threshold after being trimmed to the minimum length will be discarded. [default: false]
+    pub discard_unqualified: bool,
 }
 
 #[derive(Args)]
