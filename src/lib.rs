@@ -9,3 +9,4 @@ pub mod size;
 mod stats;
 pub mod sub_cli;
 pub mod subsample;
+pub mod trim;
