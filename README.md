@@ -1,13 +1,21 @@
 # seqtk-rs
 [![crate](https://img.shields.io/crates/v/seqtk-rs.svg)](https://crates.io/crates/seqtk-rs)
 
+[![PyPI - Version](https://img.shields.io/pypi/v/seqtk-rs.svg)](https://pypi.org/project/seqtk-rs)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/seqtk-rs.svg)](https://pypi.org/project/seqtk-rs)
+
 This is a sequence processing tool written in Rust for manipulating FASTA/FASTQ files. I built this tool out of my passion for Rust. Its functionality and subcommand names are similar to those in [`seqtk`](https://github.com/lh3/seqtk), but I’ve made some changes based on my own design logic. 
 
 <!-- ⚠️ **Notice:** This project was previously paused but is now being actively resumed. The first release is expected by the end of June or early July 2025. -->
 
 ## Installation
 ```sh
+# through cargo
 cargo install seqtk-rs
+
+# or through pip
+pip install seqtk-rs
+
 seqtk_rs -h
 ```
 
