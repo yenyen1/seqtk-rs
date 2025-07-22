@@ -35,8 +35,11 @@ seqtk_rs -h
 
     - `CG` or `GC`: Number of CG/GC on the template strand
 
+- [x] `qctrim`    Trims low-quality bases from a FASTQ data based on a quality threshold Q.
+    
+
 ## TODO
-- [ ] `trimfq` trim FASTQ file by quality score
+- [ ] `trimAdapter` trim the adapter for FASTQ file 
 
 
 ## Acknowledgements

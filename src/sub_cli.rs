@@ -54,8 +54,8 @@ pub enum Commands {
                     (7) #2: Number of R, Y, S, W, K, M\n\
                     (8) #3: Number of B, D, H, V\n\
                     (9) #4: Number of N\n\
-                    (10) CG: Number of CG on the template strand\n\
-                    (11) GC: Number of GC on the template strand"
+                    (10) #CG: Number of CG on the template strand\n\
+                    (11) #GC: Number of GC on the template strand"
     )]
     Comp(CompArgs),
 
