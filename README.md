@@ -7,7 +7,12 @@ This is a sequence processing tool written in Rust for manipulating FASTA/FASTQ 
 
 ## Installation
 ```sh
+# through cargo
 cargo install seqtk-rs
+
+# or through pip
+pip install seqtk-rs
+
 seqtk_rs -h
 ```
 

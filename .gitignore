@@ -25,3 +25,4 @@ Cargo.lock
 /target
 
 /benches
+/venv
