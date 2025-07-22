@@ -1,5 +1,5 @@
 use crate::io_utils::{FqReader, Output};
-use crate::stats;
+use crate::stats::{convert_p_err_to_q_score, Q2PConverter};
 use rayon::prelude::*;
 use std::fmt::Write;
 
@@ -80,6 +80,7 @@ fn cal_seq_all(
     qual_set: &[usize],
     asciibases: usize,
 ) -> Result<(), std::io::Error> {
+    let qplookup = Q2PConverter::new(asciibases as u8);
     let mut seq_count_mat: Vec<[usize; 256]> = vec![[0; 256]; maxlen];
     let mut seq_pos_sum: Vec<usize> = vec![0; maxlen];
     let mut seq_all: [usize; 256] = [0; 256];
@@ -116,7 +117,9 @@ fn cal_seq_all(
     let mut total_f64: f64 = total as f64;
     write!(&mut buf, "All\t{}\t", total).unwrap();
     get_seq_result(&mut buf, total_f64, &seq_all);
-    get_avg_err(&mut buf, total_f64, &qual_all, qual_set, asciibases);
+    get_avg_err(
+        &mut buf, total_f64, &qual_all, qual_set, &qplookup, asciibases,
+    );
     get_qual_result(&mut buf, total_f64, &qual_all, qual_set);
     output.write(&buf)?;
 
@@ -132,6 +135,7 @@ fn cal_seq_all(
             total_f64,
             &qual_count_mat[i],
             qual_set,
+            &qplookup,
             asciibases,
         );
         get_qual_result(&mut buf, total_f64, &qual_count_mat[i], qual_set);
@@ -146,6 +150,7 @@ fn cal_seq_with_q(
     asciibases: usize,
     q_plus_ascii: u8,
 ) -> Result<(), std::io::Error> {
+    let qplookup = Q2PConverter::new(asciibases as u8);
     let mut seq_count_mat: Vec<[usize; 256]> = vec![[0; 256]; maxlen];
     let mut seq_all: [usize; 256] = [0; 256];
     let mut qual_count_mat: Vec<[usize; 256]> = vec![[0; 256]; maxlen];
@@ -187,7 +192,9 @@ fn cal_seq_with_q(
     let mut total_f64 = total as f64;
     write!(buf, "All\t{}\t", total).unwrap();
     get_seq_result(&mut buf, total_f64, &seq_all);
-    get_avg_err(&mut buf, total_f64, &qual_all, qual_set, asciibases);
+    get_avg_err(
+        &mut buf, total_f64, &qual_all, qual_set, &qplookup, asciibases,
+    );
     get_qual_result_with_q(&mut buf, total_f64, &qual_q_count_all);
     output.write(&buf)?;
 
@@ -202,6 +209,7 @@ fn cal_seq_with_q(
             total_f64,
             &qual_count_mat[i],
             qual_set,
+            &qplookup,
             asciibases,
         );
         get_qual_result_with_q(&mut buf, total_f64, &qual_q_count[i]);
@@ -245,6 +253,7 @@ fn get_avg_err(
     total: f64,
     qual_count: &[usize; 256],
     qual_set: &[usize],
+    qplookup: &Q2PConverter,
     asciibases: usize,
 ) {
     let sum: f64 = qual_set
@@ -254,9 +263,9 @@ fn get_avg_err(
     let avg_q = sum / total;
     let sum: f64 = qual_set
         .par_iter()
-        .map(|&q| stats::convert_q_score_to_p_err((q - asciibases) as f64) * (qual_count[q] as f64))
+        .map(|&q| qplookup.get_prob(q as u8) * (qual_count[q] as f64))
         .sum();
-    let err_q = stats::convert_p_err_to_q_score(sum / total);
+    let err_q = convert_p_err_to_q_score(sum / total);
 
     write!(buf, "{:.1}\t{:.1}\t", avg_q, f64::abs(err_q)).unwrap();
 }
