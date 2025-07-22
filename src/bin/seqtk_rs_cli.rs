@@ -1,5 +1,5 @@
 use clap::Parser;
-use seqtk_rs::{fqchk, nc_comp, seq, size, sub_cli, subsample};
+use seqtk_rs::{fqchk, nc_comp, seq, size, sub_cli, subsample, trim};
 
 /// Here 1
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,7 +38,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        sub_cli::Commands::Trim(_) => {}
+        sub_cli::Commands::Qctrim(trim) => {
+            let q_threshold = trim.q_thershold.unwrap_or(13);
+            let asciibase = trim.ascii_base.unwrap_or(33);
+            let minlen = trim.min_length.unwrap_or(30);
+            trim::trimfq(&trim.in_fq, q_threshold + asciibase, minlen)?;
+        }
         sub_cli::Commands::Comp(comp) => {
             if let Some(fq) = &comp.in_fq {
                 match &comp.in_bed {

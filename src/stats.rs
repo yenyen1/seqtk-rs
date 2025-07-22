@@ -21,7 +21,6 @@ pub fn convert_q_score_to_p_err(q_score: f64) -> f64 {
     10.0f64.powf(-q_score / 10.0)
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

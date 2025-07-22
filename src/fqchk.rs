@@ -1,5 +1,5 @@
 use crate::io_utils::{FqReader, Output};
-use crate::stats::{Q2PConverter, convert_p_err_to_q_score};
+use crate::stats::{convert_p_err_to_q_score, Q2PConverter};
 use rayon::prelude::*;
 use std::fmt::Write;
 
@@ -117,7 +117,9 @@ fn cal_seq_all(
     let mut total_f64: f64 = total as f64;
     write!(&mut buf, "All\t{}\t", total).unwrap();
     get_seq_result(&mut buf, total_f64, &seq_all);
-    get_avg_err(&mut buf, total_f64, &qual_all, qual_set, &qplookup, asciibases);
+    get_avg_err(
+        &mut buf, total_f64, &qual_all, qual_set, &qplookup, asciibases,
+    );
     get_qual_result(&mut buf, total_f64, &qual_all, qual_set);
     output.write(&buf)?;
 
@@ -190,7 +192,9 @@ fn cal_seq_with_q(
     let mut total_f64 = total as f64;
     write!(buf, "All\t{}\t", total).unwrap();
     get_seq_result(&mut buf, total_f64, &seq_all);
-    get_avg_err(&mut buf, total_f64, &qual_all, qual_set, &qplookup, asciibases);
+    get_avg_err(
+        &mut buf, total_f64, &qual_all, qual_set, &qplookup, asciibases,
+    );
     get_qual_result_with_q(&mut buf, total_f64, &qual_q_count_all);
     output.write(&buf)?;
 
