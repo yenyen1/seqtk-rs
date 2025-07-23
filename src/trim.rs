@@ -10,10 +10,8 @@ use crate::io_utils::{FqReader, FxWriter};
 ///        `score(i) = score(i-1) + quality(i) - Q`
 ///      where the initial score is `score(start) = quality(start) - Q`.
 /// (3) Find out the maximun score. This is the end of the trimmed read.
-///
-/// Note:
-/// (1) If all base quality are less than `Q`, the read is discarded.
-/// (2) If the trimmed read is shorter than `min_len`, we first extend it from the 3' end. If still too short, extend form the 5' end until `min_len` is reached or no more bases are available.
+/// (4) If all base quality are less than `Q`, the read is discarded.
+/// (5) If the trimmed read is shorter than `min_len`, we first extend it from the 3' end. If still too short, extend form the 5' end until `min_len` is reached or no more bases are available.
 ///
 ///
 /// # Arguments
