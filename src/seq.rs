@@ -433,27 +433,27 @@ mod tests {
 
         // [01] check mini_seq_length
         fparas.mini_seq_length = 10;
-        assert_eq!(is_pass(0, &record, &fparas), true);
+        assert!(is_pass(0, &record, &fparas));
         fparas.mini_seq_length = 50;
-        assert_eq!(is_pass(0, &record, &fparas), false);
+        assert!(!is_pass(0, &record, &fparas));
 
         // [02] check drop ambiguous seq
         fparas = init_fparas();
         fparas.drop_ambigous_seq = true;
-        assert_eq!(is_pass(0, &record, &fparas), true);
+        assert!(is_pass(0, &record, &fparas));
         let record2 = Record::with_attrs("@SEQ_ID_2", None, b"ANCGATCGACTTG", b"!!<AAAABbbaab");
-        assert_eq!(is_pass(0, &record2, &fparas), false);
+        assert!(!is_pass(0, &record2, &fparas));
 
         // [03] output odd read
         fparas.output_odd_reads = true;
-        assert_eq!(is_pass(0, &record, &fparas), true);
-        assert_eq!(is_pass(1, &record, &fparas), false);
+        assert!(is_pass(0, &record, &fparas));
+        assert!(!is_pass(1, &record, &fparas));
 
         // [04] output even read
         fparas = init_fparas();
         fparas.output_even_reads = true;
-        assert_eq!(is_pass(3, &record, &fparas), true);
-        assert_eq!(is_pass(4, &record, &fparas), false);
+        assert!(is_pass(3, &record, &fparas));
+        assert!(!is_pass(4, &record, &fparas));
     }
     #[test]
     fn test_add_newlines() {

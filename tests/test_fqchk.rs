@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod tests {
+mod test1 {
     use std::process::Command;
     use std::{fs, str};
 

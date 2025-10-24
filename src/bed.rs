@@ -117,7 +117,7 @@ mod tests {
     }
     #[test]
     fn test_is_overlapping() {
-        let bed_pos = vec![
+        let bed_pos = [
             BedPos(6, 10),
             BedPos(13, 23),
             BedPos(30, 35),

@@ -28,6 +28,4 @@ bench = false
 [dev-dependencies]
 diol = "0.13.1"
 
-[[bench]]
-name = "test1"
-harness = false
+
