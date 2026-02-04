@@ -26,3 +26,7 @@ Cargo.lock
 
 /benches
 /venv
+
+.DS_Store
+tests/.DS_Store
+tests/data/.DS_Store
