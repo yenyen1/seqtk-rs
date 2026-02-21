@@ -47,10 +47,7 @@ where
             match reader.fill_batch(&mut batch) {
                 Ok(true) => tx_work.send(batch).unwrap(),
                 Ok(false) => break,
-                // Error return from `seq-io` crate (BufferLimit or FormatError when parsing records)
-                Err(e) => {
-                    return Err(e);
-                }
+                Err(e) => return Err(e), // Error return from `seq-io` (BufferLimit or FormatError when parsing records)
             }
         }
         Ok(())

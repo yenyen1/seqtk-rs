@@ -103,7 +103,7 @@ impl PipelineTask for SizeTask {
 
     fn run(&mut self, batch: &mut OwnedRecordSet) -> BatchSize {
         let mut batch_size = BatchSize::new();
-        for record in batch.iter() {
+        for record in batch.iter_seq() {
             batch_size.add(record.seq.len() as u32);
         }
         batch_size
@@ -113,27 +113,23 @@ impl PipelineTask for SizeTask {
     }
 }
 
-pub fn run<P: AsRef<Path>>(path: P, is_fasta: bool) -> ExitCode {
+pub fn run<P: AsRef<Path>>(path: P) -> ExitCode {
     let batch_reader = match FxReader::new(path) {
         Ok(r) => BatchReader::new(r),
         Err(e) => {
             eprintln!("[ERROR] {}", e);
-            return ExitCode::from(2)
+            return ExitCode::from(2);
         }
     };
-    let recordset_config = if is_fasta {
-        RecordSetConfig::fasta_default()
-    } else {
-        RecordSetConfig::fastq_default()
-    };
+    let recordset_config = RecordSetConfig::fasta_default();
 
     let result = run_pipeline(
         batch_reader,
         recordset_config,
-        1,
+        2,
         4,
         SizeTask,
-        BatchSize::with_capacity(10*1024*1024),
+        BatchSize::with_capacity(10 * 1024 * 1024),
     );
     match result {
         Ok(mut r) => {

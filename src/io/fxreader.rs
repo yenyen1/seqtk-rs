@@ -99,12 +99,6 @@ pub struct BatchReader {
 }
 impl BatchReader {
     /// Constructs a new `BatchReader` from an `FxReader`.
-    ///
-    /// ### Example
-    /// ```
-    /// let reader = FxReader::new(path)?;
-    /// let batch_reader = BatchReader::new(reader);
-    /// ```
     pub fn new(inner: FxReader) -> Self {
         Self {
             inner,
@@ -120,29 +114,13 @@ impl BatchReader {
     /// - Ok(false) if buffer is empty (EOF)
     /// - Err(e) if record is failed to parse by seq-io
     ///
-    /// ### Example
-    /// ```
-    /// use crate::io::recordset::{OwnedRecordSet, RecordSetConfig};
-    ///
-    /// let reader = FxReader::new(path)?;
-    /// let batch_reader = BatchReader::new(reader);
-    /// let mut record_set = OwnedRecordSet::new(RecordSetConfig::fastq_default());
-    /// match reader.fill_batch(&mut batch) {
-    ///         Ok(true) => {
-    ///                 ...
-    ///         },
-    ///         Ok(false) => break, // EOF
-    ///         Err(e) => return Err(e), // Return Error
-    ///         
-    ///     }
-    /// ```
     pub fn fill_batch(&mut self, batch: &mut OwnedRecordSet) -> Result<bool, FxError> {
         batch.clear();
 
         match &mut self.inner {
             FxReader::Fasta(reader) => {
                 if let Some(record) = self.leftover_fa.take() {
-                    batch.push(record.id_bytes(), record.seq(), &[]);
+                    batch.push(record.seq(), &[]);
                 }
 
                 while let Some(record) = reader.next() {
@@ -153,7 +131,7 @@ impl BatchReader {
                                 self.leftover_fa = Some(rec.to_owned_record());
                                 break;
                             }
-                            batch.push(rec.id_bytes(), &seq, &[]);
+                            batch.push(&seq, &[]);
                         }
                         Err(e) => {
                             // Error return from `seq-io`
@@ -165,7 +143,7 @@ impl BatchReader {
 
             FxReader::Fastq(reader) => {
                 if let Some(record) = self.leftover_fq.take() {
-                    batch.push(record.id_bytes(), record.seq(), &[]);
+                    batch.push(record.seq(), record.qual());
                 }
 
                 while let Some(record) = reader.next() {
@@ -174,7 +152,7 @@ impl BatchReader {
                             if batch.is_overload(rec.seq().len()) {
                                 self.leftover_fq = Some(rec.to_owned_record());
                             }
-                            batch.push(rec.id_bytes(), rec.seq(), rec.qual());
+                            batch.push(rec.seq(), rec.qual());
                         }
                         Err(e) => {
                             // Error return from `seq-io`

@@ -1,7 +1,10 @@
 use bio::io::{fasta, fastq};
 use flate2::read::GzDecoder;
+
 use std::fmt::Display;
+use std::fs::File;
 use std::io::{self, BufWriter, Stdout, Write};
+use std::io::{BufRead, BufReader};
 
 pub fn buffer_reader_maybe_gz(path: &str) -> io::Result<Box<dyn BufRead>> {
     let file = File::open(path)?;
@@ -79,7 +82,3 @@ impl FxWriter {
         Ok(())
     }
 }
-
-/// -----------------------------------------
-use std::fs::File;
-use std::io::{BufRead, BufReader, Read};

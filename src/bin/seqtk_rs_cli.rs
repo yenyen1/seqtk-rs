@@ -31,10 +31,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         sub_cli::Commands::Size(size) => {
             if let Some(fq) = &size.in_fq {
-                size::run(fq, false);
-            }
-            if let Some(fa) = &size.in_fa {
-                size::run(fa, true);
+                size::run(fq);
+            } else if let Some(fa) = &size.in_fa {
+                size::run(fa);
             }
             // if let Some(fq) = &size.in_fq {
             //     size::calc_fq_size(fq)?;

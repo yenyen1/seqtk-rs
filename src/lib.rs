@@ -5,7 +5,7 @@ mod io_utils;
 pub mod nc_comp;
 mod record;
 pub mod seq;
-pub mod size;
+// pub mod size;
 mod stats;
 pub mod sub_cli;
 pub mod subsample;
