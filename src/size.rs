@@ -1,5 +1,9 @@
 use crate::io_utils::{FaReader, FqReader, Output};
 use rayon::slice::ParallelSliceMut;
+use seq_io::fasta::Record;
+
+// use crate::io::fxreader::{self, FxReader, BatchReader};
+// use crate::io_utils::Output;
 
 /// Parses FASTQ file and computes read statistics.
 /// Outputs the results to [`std::io::stdout()`].
@@ -27,14 +31,14 @@ pub fn calc_fq_size(path: &str) -> Result<(), std::io::Error> {
             Ok(read) => {
                 seq_len.push(read.seq().len());
             }
-            Err(e) => eprintln!("Error read fASTQ: {}", e),
+            Err(e) => eprintln!("Error read fASTA: {}", e),
         }
     }
     seq_len.par_sort_unstable();
     let result = get_result_str(&seq_len);
     let mut output = Output::new();
-
     output.write(result)?;
+
     Ok(())
 }
 /// Parses FASTA file and computes sequence statistics.

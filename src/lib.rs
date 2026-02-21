@@ -10,3 +10,6 @@ mod stats;
 pub mod sub_cli;
 pub mod subsample;
 pub mod trim;
+
+pub mod io;
+pub mod scripts;

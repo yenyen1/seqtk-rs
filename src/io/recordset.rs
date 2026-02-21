@@ -1,5 +1,3 @@
-
-
 #[derive(Debug, Clone)]
 pub struct RecordSetConfig {
     pub id_byte_limit: usize,
@@ -8,15 +6,15 @@ pub struct RecordSetConfig {
     pub record_size_limit: usize,
 }
 impl RecordSetConfig {
-    fn fastq_default() -> Self {
+    pub fn fastq_default() -> Self {
         Self {
             id_byte_limit: 1024 * 1024,
             seq_byte_limit: 4 * 1024 * 1024,
             qual_byte_limit: 4 * 1024 * 1024,
-            record_size_limit: 16 * 1024, 
+            record_size_limit: 16 * 1024,
         }
     }
-    fn fasta_default() -> Self {
+    pub fn fasta_default() -> Self {
         Self {
             qual_byte_limit: 0,
             ..Self::fastq_default()
@@ -24,7 +22,9 @@ impl RecordSetConfig {
     }
 }
 
-
+/// ## OwnedRecordSet
+/// It serves as a movable set of records that is typically used in parallel processing.
+///
 pub struct OwnedRecordSet {
     pub ids: Vec<u8>,
     pub seqs: Vec<u8>,
@@ -44,8 +44,11 @@ impl OwnedRecordSet {
         }
     }
     pub fn is_overload(&self, next_seq_len: usize) -> bool {
-        if self.is_empty() {return false;}
-        self.meta.len() >= self.config.record_size_limit || self.seqs.len() + next_seq_len > self.config.seq_byte_limit
+        if self.is_empty() {
+            return false;
+        }
+        self.meta.len() >= self.config.record_size_limit
+            || self.seqs.len() + next_seq_len > self.config.seq_byte_limit
     }
     pub fn push(&mut self, id: &[u8], seq: &[u8], qual: &[u8]) {
         self.ids.extend_from_slice(id);
@@ -68,11 +71,15 @@ impl OwnedRecordSet {
         self.meta.is_empty()
     }
     pub fn iter<'a>(&'a self) -> RecordSetIter<'a> {
-        RecordSetIter { data: self, index: 0, id_offset: 0, seq_offset: 0, qual_offset: 0 }
+        RecordSetIter {
+            data: self,
+            index: 0,
+            id_offset: 0,
+            seq_offset: 0,
+            qual_offset: 0,
+        }
     }
 }
-
-
 
 pub struct RecordSlice<'a> {
     pub id: &'a [u8],
@@ -97,9 +104,9 @@ impl<'a> Iterator for RecordSetIter<'a> {
 
         let (id_len, seq_len, qual_len) = self.data.meta[self.index];
         let recode_slice = RecordSlice {
-            id: &self.data.ids[self.id_offset .. self.id_offset + id_len],
-            seq: &self.data.seqs[self.seq_offset .. self.seq_offset + seq_len],
-            qual: &self.data.quals[self.qual_offset .. self.qual_offset + qual_len],
+            id: &self.data.ids[self.id_offset..self.id_offset + id_len],
+            seq: &self.data.seqs[self.seq_offset..self.seq_offset + seq_len],
+            qual: &self.data.quals[self.qual_offset..self.qual_offset + qual_len],
         };
 
         self.index += 1;

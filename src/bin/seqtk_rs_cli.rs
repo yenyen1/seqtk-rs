@@ -1,6 +1,6 @@
 use clap::Parser;
-use seqtk_rs::{fqchk, nc_comp, seq, size, sub_cli, subsample, trim};
-
+use seqtk_rs::scripts::size;
+use seqtk_rs::{fqchk, nc_comp, seq, sub_cli, subsample, trim};
 /// Here 1
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = sub_cli::Cli::parse();
@@ -31,11 +31,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         sub_cli::Commands::Size(size) => {
             if let Some(fq) = &size.in_fq {
-                size::calc_fq_size(fq)?;
+                size::run(fq, false);
             }
             if let Some(fa) = &size.in_fa {
-                size::calc_fa_size(fa)?;
+                size::run(fa, true);
             }
+            // if let Some(fq) = &size.in_fq {
+            //     size::calc_fq_size(fq)?;
+            // }
+            // if let Some(fa) = &size.in_fa {
+            //     size::calc_fa_size(fa)?;
+            // }
         }
 
         sub_cli::Commands::Qctrim(trim) => {
