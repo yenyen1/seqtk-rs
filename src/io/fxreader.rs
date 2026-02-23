@@ -17,7 +17,7 @@ pub enum FxReader {
     Fastq(fastq::Reader<BoxedRead>),
 }
 impl FxReader {
-    /// Constructs a new `FxReader` from the specified path
+    /// ## Constructs a new `FxReader` from the specified path
     ///
     /// The input file is automatically inspected to determine:
     /// - Whether the file is compressed (gzip supported)
@@ -29,7 +29,7 @@ impl FxReader {
     ///
     /// It returns an appropriate reader accordingly
     ///
-    /// # Errors
+    /// ### Errors
     ///
     /// Returns an error if:
     /// - The file cannot be opened (`NotFound`, `PermissionDenied`, etc.)
@@ -87,6 +87,51 @@ impl FxReader {
             ))),
         }
     }
+    /// ## Processes sequence records (FASTA/FASTQ) through a unified pipeline.
+    /// It is used to compute statistics record by record.
+    ///
+    /// ### Arguments  
+    /// * `stats` - A mutable reference to a user-defined structure for aggregating statistics
+    /// * `process` - A closure that takes `(&mut S, RecordView)` and performs the core logic.
+    ///
+    /// ### Error
+    /// Return an Error if wrong record format or bufferlimit reached
+    pub fn run_statistics<S, F>(&mut self, stats: &mut S, mut process: F) -> Result<(), FxError>
+    where
+        F: FnMut(&mut S, RecordView),
+    {
+        match self {
+            FxReader::Fasta(reader) => {
+                while let Some(record) = reader.next() {
+                    let record = record?;
+                    let view = RecordView {
+                        id: record.head(),
+                        seq: &record.full_seq(),
+                        qual: None,
+                    };
+                    process(stats, view);
+                }
+            }
+            FxReader::Fastq(reader) => {
+                while let Some(record) = reader.next() {
+                    let record = record?;
+                    let view = RecordView {
+                        id: record.head(),
+                        seq: record.seq(),
+                        qual: Some(record.qual()),
+                    };
+                    process(stats, view);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub struct RecordView<'a> {
+    pub id: &'a [u8],
+    pub seq: &'a [u8],
+    pub qual: Option<&'a [u8]>,
 }
 
 /// ## BatchReader
@@ -124,41 +169,27 @@ impl BatchReader {
                 }
 
                 while let Some(record) = reader.next() {
-                    match record {
-                        Ok(rec) => {
-                            let seq = rec.full_seq();
-                            if batch.is_overload(seq.len()) {
-                                self.leftover_fa = Some(rec.to_owned_record());
-                                break;
-                            }
-                            batch.push(&seq, &[]);
-                        }
-                        Err(e) => {
-                            // Error return from `seq-io`
-                            return Err(FxError::from(e));
-                        }
-                    };
+                    let record = record?; // Return err from `seq-io`
+                    let seq = record.full_seq();
+                    if batch.is_overload(seq.len()) {
+                        self.leftover_fa = Some(record.to_owned_record());
+                        break;
+                    }
+                    batch.push(&seq, &[]);
                 }
             }
-
             FxReader::Fastq(reader) => {
                 if let Some(record) = self.leftover_fq.take() {
                     batch.push(record.seq(), record.qual());
                 }
 
                 while let Some(record) = reader.next() {
-                    match record {
-                        Ok(rec) => {
-                            if batch.is_overload(rec.seq().len()) {
-                                self.leftover_fq = Some(rec.to_owned_record());
-                            }
-                            batch.push(rec.seq(), rec.qual());
-                        }
-                        Err(e) => {
-                            // Error return from `seq-io`
-                            return Err(FxError::from(e));
-                        }
+                    let record = record?; // Return err from `seq-io`
+                    if batch.is_overload(record.seq().len()) {
+                        self.leftover_fq = Some(record.to_owned_record());
+                        break;
                     }
+                    batch.push(record.seq(), record.qual());
                 }
             }
         }

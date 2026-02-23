@@ -103,19 +103,9 @@ pub struct QCTrimArgs {
 }
 
 #[derive(Args)]
-#[command(group(
-    ArgGroup::new("exclusive_group")
-        .args(["in_fq", "in_fa"])
-        .required(true)
-        .multiple(false)
-))]
 pub struct SizeArgs {
-    #[arg(short = 'I', long)]
-    /// FASTQ path
-    pub in_fq: Option<String>,
-    #[arg(short = 'A', long)]
-    /// FASTA path
-    pub in_fa: Option<String>,
+    /// FASTA/FASTQ path
+    pub in_fx: String,
 }
 
 #[derive(Args)]
