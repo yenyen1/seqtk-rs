@@ -8,7 +8,7 @@ use std::path::Path;
 use std::process::ExitCode;
 
 #[derive(Debug, Clone)]
-pub struct BatchSize {
+struct BatchSize {
     read_count: usize,
     base_count: usize,
     min_length: usize,
@@ -19,11 +19,11 @@ pub struct BatchSize {
     lengths: Vec<usize>,
 }
 impl BatchSize {
-    pub fn new() -> Self {
+    fn new() -> Self {
         // the same as record_size_limit of RecordSetConfig
         Self::with_capacity(16 * 1024)
     }
-    pub fn with_capacity(capacity: usize) -> Self {
+    fn with_capacity(capacity: usize) -> Self {
         Self {
             read_count: 0,
             base_count: 0,
@@ -35,15 +35,15 @@ impl BatchSize {
             lengths: Vec::with_capacity(capacity),
         }
     }
-    pub fn add(&mut self, length: usize) {
+    fn add(&mut self, length: usize) {
         self.base_count += length;
         self.lengths.push(length);
     }
-    pub fn merge(&mut self, size: BatchSize) {
-        self.base_count += size.base_count;
-        self.lengths.extend_from_slice(&size.lengths);
-    }
-    pub fn calculate_statistics(&mut self) {
+    // fn merge(&mut self, size: BatchSize) {
+    //     self.base_count += size.base_count;
+    //     self.lengths.extend_from_slice(&size.lengths);
+    // }
+    fn calculate_statistics(&mut self) {
         self.lengths.par_sort_unstable();
         self.read_count = self.lengths.len();
 

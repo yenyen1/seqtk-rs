@@ -1,6 +1,6 @@
 use clap::Parser;
-use seqtk_rs::scripts::size;
-use seqtk_rs::{fqchk, nc_comp, seq, sub_cli, subsample, trim};
+use seqtk_rs::scripts::{fqchk, size};
+use seqtk_rs::{nc_comp, seq, sub_cli, subsample, trim};
 /// Here 1
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = sub_cli::Cli::parse();
@@ -9,15 +9,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         sub_cli::Commands::Fqchk(fqchk) => {
             let qthreshold = fqchk.quality_value.unwrap_or(0);
             let ascii = fqchk.ascii_base.unwrap_or(33);
-            if qthreshold == 0 {
-                fqchk::get_result_wo_qthreshold(&fqchk.in_fq, ascii as usize)?;
-            } else {
-                fqchk::get_result_with_qthreshold(
-                    &fqchk.in_fq,
-                    qthreshold + ascii,
-                    ascii as usize,
-                )?;
-            }
+            fqchk::run(&fqchk.in_fq, ascii, qthreshold);
+            // if qthreshold == 0 {
+            //     fqchk::get_result_wo_qthreshold(&fqchk.in_fq, ascii as usize)?;
+            // } else {
+            //     fqchk::get_result_with_qthreshold(
+            //         &fqchk.in_fq,
+            //         qthreshold + ascii,
+            //         ascii as usize,
+            //     )?;
+            // }
         }
 
         sub_cli::Commands::Sample(sample) => {

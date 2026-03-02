@@ -8,12 +8,15 @@ use crossbeam;
 
 /// Parallel Task for worker threads
 pub trait PipelineTask: Send + Sync + Clone + 'static {
+    type TaskParas: Send;
     type Partial: Send;
     type Final: Send;
+    /// Get Task Parameters
+    fn get_task_paras(&self) -> Self::TaskParas;
     /// The worker function invoked in parallel to process individual RecordSet batches.
     /// This function performs the core computation on a data subset.
     /// It is expected to be infallible (no errors should occur).
-    fn run(&mut self, batch: &mut OwnedRecordSet) -> Self::Partial;
+    fn run(&mut self, batch: &mut OwnedRecordSet, task_paras: Self::TaskParas) -> Self::Partial;
 
     /// Merges a partial result into the global aggregator to produce the final result.
     /// This is invoked as soon as an individual parallel task completes,
@@ -63,7 +66,7 @@ where
 
         workers_handle.push(thread::spawn(move || {
             while let Ok(mut batch) = w_rx.recv() {
-                let p_result = t_task.run(&mut batch);
+                let p_result = t_task.run(&mut batch, t_task.get_task_paras());
                 r_tx.send(p_result).unwrap(); // need to recheck Error scenario
                 let _ = p_tx.send(batch); // need to recheck Error
             }

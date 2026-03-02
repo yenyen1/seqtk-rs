@@ -81,10 +81,10 @@ pub struct FqchkArgs {
     pub in_fq: String,
     #[arg(short, long)]
     /// Quality value [default: 0]
-    pub quality_value: Option<u8>,
+    pub quality_value: Option<usize>,
     #[arg(short, long)]
     /// Ascii value [default: 33]
-    pub ascii_base: Option<u8>,
+    pub ascii_base: Option<usize>,
 }
 
 #[derive(Args)]
