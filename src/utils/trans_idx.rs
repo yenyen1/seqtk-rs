@@ -1,6 +1,6 @@
 const fn build_dna_table() -> [u8; 256] {
     let mut table = [4u8; 256];
-    
+
     let mut i = 0;
     while i < 256 {
         let b = i as u8;
